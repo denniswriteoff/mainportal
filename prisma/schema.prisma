@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String         @id @default(cuid())
+  name                  String?
+  email                 String         @unique
+  emailVerified         DateTime?
+  image                 String?
+  passwordHash          String
+  isAdmin               Boolean        @default(false)
+  canModifySystemPrompt Boolean        @default(false)
+  canCreateUsers        Boolean        @default(false)
+  accountingService     String?        // 'QBO' or 'XERO' - user can only have one
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  accounts              Account[]
+  sessions              Session[]
+  qboTokens             QboToken[]
+  xeroTokens            XeroToken[]
+
+  @@index([email])
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model QboToken {
+  id                    String    @id @default(cuid())
+  userId                String
+  realmId               String
+  tokenType             String    @default("Bearer") @map("token_type")
+  accessToken           String    @map("access_token") @db.Text
+  refreshToken          String    @map("refresh_token") @db.Text
+  expiresIn             Int       @map("expires_in")
+  refreshTokenExpiresIn Int?      @map("x_refresh_token_expires_in")
+  idToken               String?   @map("id_token") @db.Text
+  accessTokenExpiresAt  DateTime  @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, realmId])
+  @@index([userId])
+  @@index([accessTokenExpiresAt])
+  @@map("qbo_tokens")
+}
+
+model XeroToken {
+  id                    String    @id @default(cuid())
+  userId                String
+  tenantId              String
+  accessToken           String    @map("access_token") @db.Text
+  refreshToken          String    @map("refresh_token") @db.Text
+  idToken               String?   @map("id_token") @db.Text
+  expiresIn             Int       @map("expires_in")
+  tokenType             String    @default("Bearer") @map("token_type")
+  scope                 String?
+  accessTokenExpiresAt  DateTime  @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([userId])
+  @@index([accessTokenExpiresAt])
+  @@map("xero_tokens")
+}
+
+model SystemSettings {
+  id        String   @id @default("global")
+  updatedBy String
+  updatedAt DateTime @updatedAt
+  settings  Json     @default("{}")
+}
+
