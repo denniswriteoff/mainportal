@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       data: { accountingService: "XERO" },
     });
 
-    return NextResponse.redirect(new URL("/?success=xero-connected", request.url));
+    return NextResponse.redirect(new URL("/profile?success=xero-connected", request.url));
   } catch (error) {
     console.error("Xero OAuth error:", error);
     return NextResponse.redirect(

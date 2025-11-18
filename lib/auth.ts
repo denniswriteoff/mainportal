@@ -55,12 +55,24 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
         token.isAdmin = user.isAdmin;
         token.accountingService = user.accountingService;
       }
+      
+      // Refresh accountingService from database on update trigger
+      if (trigger === "update" && token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { accountingService: true },
+        });
+        if (dbUser) {
+          token.accountingService = dbUser.accountingService;
+        }
+      }
+      
       return token;
     },
     async session({ session, token }) {

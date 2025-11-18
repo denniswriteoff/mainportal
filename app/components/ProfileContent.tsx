@@ -1,23 +1,44 @@
 "use client";
 
 import { Session } from "next-auth";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Card, CardBody, Input, Button, Chip } from "@nextui-org/react";
 
 interface ProfileContentProps {
   session: Session;
 }
 
-export default function ProfileContent({ session }: ProfileContentProps) {
-  const [name, setName] = useState(session.user.name || "");
-  const [email, setEmail] = useState(session.user.email || "");
+export default function ProfileContent({ session: initialSession }: ProfileContentProps) {
+  const { data: session, update } = useSession();
+  const currentSession = session || initialSession;
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
+  const [name, setName] = useState(currentSession.user.name || "");
+  const [email, setEmail] = useState(currentSession.user.email || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const router = useRouter();
+
+  // Trigger session update when returning from OAuth callback
+  useEffect(() => {
+    const success = searchParams.get("success");
+    if (success) {
+      if (success === "xero-connected") {
+        setMessage({ type: "success", text: "Xero connected successfully!" });
+      } else if (success === "qbo-connected") {
+        setMessage({ type: "success", text: "QuickBooks connected successfully!" });
+      }
+      // Update the session to reflect the new accountingService
+      update();
+      // Clean up the URL
+      router.replace("/profile");
+    }
+  }, [searchParams, update, router]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,6 +113,8 @@ export default function ProfileContent({ session }: ProfileContentProps) {
 
       if (response.ok) {
         setMessage({ type: "success", text: "Service disconnected successfully!" });
+        // Trigger session update to refresh accountingService
+        await update();
         router.refresh();
       } else {
         const data = await response.json();
@@ -250,17 +273,17 @@ export default function ProfileContent({ session }: ProfileContentProps) {
               </div>
               <h2 className="text-2xl font-bold text-white">Connected Services</h2>
             </div>
-            {session.user.accountingService ? (
+            {currentSession.user.accountingService ? (
               <div className="flex items-center justify-between p-6 bg-white/5 rounded-2xl border border-white/10">
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 bg-gradient-to-br from-[#E8E7BB] to-[#d4d3a7] rounded-2xl flex items-center justify-center shadow-lg">
                     <span className="text-[#1D1D1D] font-bold text-lg">
-                      {session.user.accountingService === "QBO" ? "QB" : "X"}
+                      {currentSession.user.accountingService === "QBO" ? "QB" : "X"}
                     </span>
                   </div>
                   <div>
                     <div className="font-semibold text-base text-white mb-1">
-                      {session.user.accountingService === "QBO"
+                      {currentSession.user.accountingService === "QBO"
                         ? "QuickBooks Online"
                         : "Xero"}
                     </div>

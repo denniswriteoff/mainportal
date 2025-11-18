@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       data: { accountingService: "QBO" },
     });
 
-    return NextResponse.redirect(new URL("/?success=qbo-connected", request.url));
+    return NextResponse.redirect(new URL("/profile?success=qbo-connected", request.url));
   } catch (error) {
     console.error("QBO OAuth error:", error);
     return NextResponse.redirect(

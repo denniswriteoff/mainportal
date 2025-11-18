@@ -2,6 +2,7 @@
 
 import { Session } from "next-auth";
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Card, CardBody, Button, Spinner } from "@nextui-org/react";
 import { 
   DollarSign, 
@@ -22,7 +23,10 @@ interface DashboardContentProps {
   session: Session;
 }
 
-export default function DashboardContent({ session }: DashboardContentProps) {
+export default function DashboardContent({ session: initialSession }: DashboardContentProps) {
+  const { data: session } = useSession();
+  const currentSession = session || initialSession;
+  
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<'YEAR' | 'MONTH'>('YEAR');
@@ -150,7 +154,7 @@ export default function DashboardContent({ session }: DashboardContentProps) {
     return `${value.toFixed(1)}%`;
   };
 
-  const firstName = session.user.name?.split(" ")[0] || "User";
+  const firstName = currentSession.user.name?.split(" ")[0] || "User";
 
     return (
       <div className="flex-1 overflow-y-auto bg-[#E8E7BB]">
@@ -163,7 +167,7 @@ export default function DashboardContent({ session }: DashboardContentProps) {
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            {!session.user.accountingService && (
+            {!currentSession.user.accountingService && (
               <Button 
                 color="primary" 
                 variant="flat"
@@ -179,7 +183,7 @@ export default function DashboardContent({ session }: DashboardContentProps) {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto p-6">
-        {!session.user.accountingService ? (
+        {!currentSession.user.accountingService ? (
           <div className="flex items-center justify-center min-h-[500px]">
             <Card className="max-w-2xl w-full bg-[#1D1D1D] shadow-2xl">
               <CardBody className="p-12 text-center">
