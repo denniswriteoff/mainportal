@@ -66,8 +66,8 @@ export default function FinancialCard({
             </div>
           </div>
         ) : (
-          <div>
-            <div className="text-2xl font-bold text-[#1D1D1D] mb-1">
+          <div className="flex flex-col items-center justify-center min-h-[120px]">
+            <div className="text-4xl font-bold text-[#1D1D1D] mb-1">
               {formatCurrency(amount)}
             </div>
             {subtitle && (

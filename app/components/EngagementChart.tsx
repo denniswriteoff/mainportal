@@ -1,7 +1,5 @@
 "use client";
 
-import { Button, ButtonGroup, Chip } from "@nextui-org/react";
-import { useState } from "react";
 import {
   BarChart,
   Bar,
@@ -17,37 +15,22 @@ interface EngagementChartProps {
 }
 
 export default function EngagementChart({ data }: EngagementChartProps) {
-  const [period, setPeriod] = useState<"monthly" | "annually">("annually");
-
-  const defaultData = [
-    { month: "JAN", value: 2500 },
-    { month: "FEB", value: 4200 },
-    { month: "MAR", value: 3200 },
-    { month: "APR", value: 5000 },
-    { month: "MAY", value: 3800 },
-    { month: "JUN", value: 4500 },
-  ];
-
-  const chartData = data.length > 0 ? data : defaultData;
+  const chartData = data.length > 0 ? data : [];
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-base font-semibold text-[#1D1D1D]">Engagement Rate</h3>
-        <ButtonGroup size="sm" variant="flat">
-          <Button
-            onPress={() => setPeriod("monthly")}
-            color={period === "monthly" ? "primary" : "default"}
-          >
-            Monthly
-          </Button>
-          <Button
-            onPress={() => setPeriod("annually")}
-            color={period === "annually" ? "primary" : "default"}
-          >
-            Annually
-          </Button>
-        </ButtonGroup>
+        <h3 className="text-base font-semibold text-[#1D1D1D]">Revenue vs Expenses</h3>
+        <div className="flex gap-4 items-center">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-[#E8E7BB]"></div>
+            <span className="text-xs text-gray-600">Revenue</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-[#EF4444]"></div>
+            <span className="text-xs text-gray-600">Expenses</span>
+          </div>
+        </div>
       </div>
 
       <ResponsiveContainer width="100%" height={280}>
@@ -63,7 +46,7 @@ export default function EngagementChart({ data }: EngagementChartProps) {
             axisLine={false}
             tickLine={false}
             tick={{ fill: "#6b7280", fontSize: 12, fontWeight: 500 }}
-            tickFormatter={(value) => `${value / 1000}k`}
+            tickFormatter={(value) => `$${value / 1000}k`}
           />
           <Tooltip
             contentStyle={{
@@ -72,22 +55,24 @@ export default function EngagementChart({ data }: EngagementChartProps) {
               borderRadius: "12px",
               padding: "8px 12px",
             }}
-            formatter={(value: any) => [`$${value.toLocaleString()}`, "Revenue"]}
+            formatter={(value: any) => [`$${value.toLocaleString()}`]}
           />
           <Bar 
-            dataKey="value" 
+            dataKey="revenue" 
             fill="#E8E7BB" 
             radius={[8, 8, 0, 0]}
-            maxBarSize={40}
+            maxBarSize={30}
+            name="Revenue"
+          />
+          <Bar 
+            dataKey="expenses" 
+            fill="#EF4444" 
+            radius={[8, 8, 0, 0]}
+            maxBarSize={30}
+            name="Expenses"
           />
         </BarChart>
       </ResponsiveContainer>
-
-      <div className="mt-4 flex justify-center">
-        <Chip color="success" variant="flat" size="sm" className="font-medium">
-          +17.8%
-        </Chip>
-      </div>
     </div>
   );
 }

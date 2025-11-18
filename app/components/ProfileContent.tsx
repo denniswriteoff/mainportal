@@ -105,23 +105,23 @@ export default function ProfileContent({ session }: ProfileContentProps) {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#fafafa]">
+    <div className="flex-1 overflow-y-auto bg-[#E8E7BB]">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-6 py-4">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl font-semibold text-[#1D1D1D]">Profile Settings</h1>
-          <p className="text-gray-600 text-sm mt-1">Manage your account settings and preferences</p>
+      <div className="sticky top-0 z-10 bg-[#1D1D1D] border-b border-gray-800 px-6 py-4 backdrop-blur-sm">
+        <div className="max-w-5xl mx-auto">
+          <h1 className="text-2xl font-semibold text-white">Profile Settings</h1>
+          <p className="text-gray-400 text-sm mt-1">Manage your account settings and preferences</p>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <div className="max-w-5xl mx-auto p-6 space-y-6">
         {message && (
           <div
-            className={`px-4 py-3 rounded-lg text-sm ${
+            className={`px-6 py-4 rounded-full text-sm font-medium shadow-lg ${
               message.type === "success"
-                ? "bg-success-50 border border-success-200 text-success-700"
-                : "bg-danger-50 border border-danger-200 text-danger-700"
+                ? "bg-green-500/20 border border-green-500/30 text-green-600"
+                : "bg-red-500/20 border border-red-500/30 text-red-600"
             }`}
           >
             {message.text}
@@ -129,30 +129,47 @@ export default function ProfileContent({ session }: ProfileContentProps) {
         )}
 
         {/* Profile Information */}
-        <Card className="border border-gray-100 shadow-sm">
-          <CardBody className="p-6">
-            <h2 className="text-lg font-semibold mb-4 text-[#1D1D1D]">Profile Information</h2>
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
-              <Input
-                label="Name"
-                value={name}
-                onValueChange={setName}
-                variant="bordered"
-                isRequired
-              />
-              <Input
-                type="email"
-                label="Email"
-                value={email}
-                onValueChange={setEmail}
-                variant="bordered"
-                isRequired
-              />
+        <Card className="bg-[#1D1D1D] rounded-3xl shadow-2xl border-none">
+          <CardBody className="p-8">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="bg-[#E8E7BB] p-2 rounded-full">
+                <div className="w-2 h-2 bg-[#1D1D1D] rounded-full"></div>
+              </div>
+              <h2 className="text-2xl font-bold text-white">Profile Information</h2>
+            </div>
+            <form onSubmit={handleUpdateProfile} className="space-y-6">
+              <div>
+                <label className="text-sm font-medium text-gray-400 mb-2 block">Full Name</label>
+                <Input
+                  value={name}
+                  onValueChange={setName}
+                  variant="bordered"
+                  isRequired
+                  classNames={{
+                    input: "text-white",
+                    inputWrapper: "bg-white/5 border-white/10 hover:bg-white/10 rounded-xl",
+                  }}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-400 mb-2 block">Email Address</label>
+                <Input
+                  type="email"
+                  value={email}
+                  onValueChange={setEmail}
+                  variant="bordered"
+                  isRequired
+                  classNames={{
+                    input: "text-white",
+                    inputWrapper: "bg-white/5 border-white/10 hover:bg-white/10 rounded-xl",
+                  }}
+                />
+              </div>
               <Button
                 type="submit"
-                color="primary"
                 isLoading={loading}
                 isDisabled={loading}
+                className="w-full bg-[#E8E7BB] text-[#1D1D1D] font-semibold rounded-full h-12 text-base hover:bg-[#d4d3a7] transition-all shadow-lg"
               >
                 Save Changes
               </Button>
@@ -161,39 +178,62 @@ export default function ProfileContent({ session }: ProfileContentProps) {
         </Card>
 
         {/* Change Password */}
-        <Card className="border border-gray-100 shadow-sm">
-          <CardBody className="p-6">
-            <h2 className="text-lg font-semibold mb-4 text-[#1D1D1D]">Change Password</h2>
-            <form onSubmit={handleChangePassword} className="space-y-4">
-              <Input
-                type="password"
-                label="Current Password"
-                value={currentPassword}
-                onValueChange={setCurrentPassword}
-                variant="bordered"
-                isRequired
-              />
-              <Input
-                type="password"
-                label="New Password"
-                value={newPassword}
-                onValueChange={setNewPassword}
-                variant="bordered"
-                isRequired
-              />
-              <Input
-                type="password"
-                label="Confirm New Password"
-                value={confirmPassword}
-                onValueChange={setConfirmPassword}
-                variant="bordered"
-                isRequired
-              />
+        <Card className="bg-[#1D1D1D] rounded-3xl shadow-2xl border-none">
+          <CardBody className="p-8">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="bg-[#E8E7BB] p-2 rounded-full">
+                <div className="w-2 h-2 bg-[#1D1D1D] rounded-full"></div>
+              </div>
+              <h2 className="text-2xl font-bold text-white">Change Password</h2>
+            </div>
+            <form onSubmit={handleChangePassword} className="space-y-6">
+              <div>
+                <label className="text-sm font-medium text-gray-400 mb-2 block">Current Password</label>
+                <Input
+                  type="password"
+                  value={currentPassword}
+                  onValueChange={setCurrentPassword}
+                  variant="bordered"
+                  isRequired
+                  classNames={{
+                    input: "text-white",
+                    inputWrapper: "bg-white/5 border-white/10 hover:bg-white/10 rounded-xl",
+                  }}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-400 mb-2 block">New Password</label>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onValueChange={setNewPassword}
+                  variant="bordered"
+                  isRequired
+                  classNames={{
+                    input: "text-white",
+                    inputWrapper: "bg-white/5 border-white/10 hover:bg-white/10 rounded-xl",
+                  }}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-400 mb-2 block">Confirm New Password</label>
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onValueChange={setConfirmPassword}
+                  variant="bordered"
+                  isRequired
+                  classNames={{
+                    input: "text-white",
+                    inputWrapper: "bg-white/5 border-white/10 hover:bg-white/10 rounded-xl",
+                  }}
+                />
+              </div>
               <Button
                 type="submit"
-                color="primary"
                 isLoading={loading}
                 isDisabled={loading}
+                className="w-full bg-[#E8E7BB] text-[#1D1D1D] font-semibold rounded-full h-12 text-base hover:bg-[#d4d3a7] transition-all shadow-lg"
               >
                 Change Password
               </Button>
@@ -202,59 +242,67 @@ export default function ProfileContent({ session }: ProfileContentProps) {
         </Card>
 
         {/* Connected Services */}
-        <Card className="border border-gray-100 shadow-sm">
-          <CardBody className="p-6">
-            <h2 className="text-lg font-semibold mb-4 text-[#1D1D1D]">Connected Services</h2>
+        <Card className="bg-[#1D1D1D] rounded-3xl shadow-2xl border-none">
+          <CardBody className="p-8">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="bg-[#E8E7BB] p-2 rounded-full">
+                <div className="w-2 h-2 bg-[#1D1D1D] rounded-full"></div>
+              </div>
+              <h2 className="text-2xl font-bold text-white">Connected Services</h2>
+            </div>
             {session.user.accountingService ? (
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
-                    <span className="text-[#1D1D1D] font-semibold text-sm">
+              <div className="flex items-center justify-between p-6 bg-white/5 rounded-2xl border border-white/10">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-gradient-to-br from-[#E8E7BB] to-[#d4d3a7] rounded-2xl flex items-center justify-center shadow-lg">
+                    <span className="text-[#1D1D1D] font-bold text-lg">
                       {session.user.accountingService === "QBO" ? "QB" : "X"}
                     </span>
                   </div>
                   <div>
-                    <div className="font-medium text-sm text-[#1D1D1D]">
+                    <div className="font-semibold text-base text-white mb-1">
                       {session.user.accountingService === "QBO"
                         ? "QuickBooks Online"
                         : "Xero"}
                     </div>
-                    <Chip size="sm" color="success" variant="flat" className="mt-1">
+                    <Chip 
+                      size="sm" 
+                      className="bg-green-500/20 text-green-400 border border-green-500/30"
+                    >
                       Connected
                     </Chip>
                   </div>
                 </div>
                 <Button
-                  color="danger"
-                  variant="flat"
-                  size="sm"
                   onPress={handleDisconnectService}
                   isLoading={loading}
                   isDisabled={loading}
+                  className="bg-red-500/20 text-red-400 border border-red-500/30 rounded-full px-6 hover:bg-red-500/30 transition-all"
                 >
                   Disconnect
                 </Button>
               </div>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-600 mb-4 text-sm">
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <p className="text-gray-400 mb-6 text-sm">
                   No accounting service connected
                 </p>
                 <div className="flex justify-center gap-3">
                   <Button
                     as="a"
                     href="/api/auth/qbo/connect"
-                    color="primary"
-                    variant="flat"
-                    size="sm"
+                    className="bg-white/10 text-white rounded-full px-6 hover:bg-white/20 transition-all"
                   >
                     Connect QuickBooks
                   </Button>
                   <Button
                     as="a"
                     href="/api/auth/xero/connect"
-                    color="primary"
-                    size="sm"
+                    className="bg-[#E8E7BB] text-[#1D1D1D] font-semibold rounded-full px-6 hover:bg-[#d4d3a7] transition-all"
                   >
                     Connect Xero
                   </Button>
