@@ -8,15 +8,15 @@
   --background-end-rgb: 249, 250, 251;
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-start-rgb));
-  font-feature-settings: "rlig" 1, "calt" 1;
+html {
+  background: #E8E7BB;
+  scroll-behavior: smooth;
 }
 
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
+body {
+  color: rgb(var(--foreground-rgb));
+  background: #E8E7BB;
+  font-feature-settings: "rlig" 1, "calt" 1;
 }
 
 /* Custom scrollbar */
