@@ -6,9 +6,25 @@ import { Providers } from "./providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Writeoff - Main Portal",
-  description: "Unified portal for accounting services",
+  title: 'Writeoff App',
+  description: 'Writeoff App',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
+  icons: {
+    icon: '/image.png',
+    shortcut: '/image.png',
+    apple: '/image.png',
+    other: {
+      rel: 'apple-touch-icon-precomposed',
+      url: '/image.png',
+    },
+  },
 };
+
 
 export default function RootLayout({
   children,
