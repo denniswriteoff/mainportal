@@ -76,7 +76,7 @@ export default function Sidebar({ accountingService }: SidebarProps) {
   return (
     <aside className={`${isExpanded ? 'w-64' : 'w-16'} bg-[#1D1D1D] flex flex-col py-4 px-3 transition-all duration-300 ease-in-out overflow-hidden`}>
       {/* Logo */}
-      <Link href="/" className={`mb-8 ${isExpanded ? '' : 'w-full flex justify-center'}`}>
+      <Link href="/" className="mb-8 flex">
         <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all hover:scale-105 p-2 flex-shrink-0">
           <Image
             src="/image.png"

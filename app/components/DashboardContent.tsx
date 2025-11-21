@@ -29,6 +29,8 @@ export default function DashboardContent({ session: initialSession }: DashboardC
   
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMonthly, setLoadingMonthly] = useState(true);
+  const [loadingPrevious, setLoadingPrevious] = useState(true);
   const [timeframe, setTimeframe] = useState<'YEAR' | 'MONTH'>('YEAR');
   const [sortField, setSortField] = useState<'name' | 'value' | 'percentage'>('value');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -40,15 +42,57 @@ export default function DashboardContent({ session: initialSession }: DashboardC
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/dashboard/stats?timeframe=${timeframe}`);
-      if (response.ok) {
-        const data = await response.json();
-        setDashboardData(data);
+      setLoadingMonthly(true);
+      setLoadingPrevious(true);
+      
+      // Fetch main stats (fast - KPIs and expense breakdown)
+      const statsResponse = await fetch(`/api/dashboard/stats?timeframe=${timeframe}`);
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        setDashboardData((prev: any) => ({ 
+          ...prev, 
+          ...statsData,
+          trendData: prev?.trendData || [],
+          previousPeriodData: prev?.previousPeriodData || [],
+        }));
       }
+      setLoading(false);
+
+      // Fetch monthly trend data (slower - 12 API calls with rate limiting)
+      const currentYear = new Date().getFullYear();
+      const monthlyResponse = await fetch(`/api/dashboard/monthly?year=${currentYear}`);
+      if (monthlyResponse.ok) {
+        const monthlyData = await monthlyResponse.json();
+        setDashboardData((prev: any) => ({ 
+          ...prev, 
+          trendData: monthlyData.trendData || [],
+        }));
+      }
+      setLoadingMonthly(false);
+
+      // Fetch previous period data (slow - additional API call)
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        const timeframeData = statsData.timeframe;
+        if (timeframeData?.from && timeframeData?.to) {
+          const previousResponse = await fetch(
+            `/api/dashboard/previous?timeframe=${timeframe}&fromDate=${timeframeData.from}&toDate=${timeframeData.to}`
+          );
+          if (previousResponse.ok) {
+            const previousData = await previousResponse.json();
+            setDashboardData((prev: any) => ({ 
+              ...prev, 
+              previousPeriodData: previousData.previousPeriodData || [],
+            }));
+          }
+        }
+      }
+      setLoadingPrevious(false);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
-    } finally {
       setLoading(false);
+      setLoadingMonthly(false);
+      setLoadingPrevious(false);
     }
   };
 
@@ -344,10 +388,10 @@ export default function DashboardContent({ session: initialSession }: DashboardC
             </div>
 
             {/* Revenue vs Expenses Trend Chart */}
-            <RevenueExpensesChart data={dashboardData?.trendData || []} loading={loading} />
+            <RevenueExpensesChart data={dashboardData?.trendData || []} loading={loadingMonthly} />
 
             {/* Net Profit Trend Chart */}
-            <NetProfitTrendChart data={dashboardData?.trendData || []} loading={loading} />
+            <NetProfitTrendChart data={dashboardData?.trendData || []} loading={loadingMonthly} />
 
             {/* Expense Breakdown Chart */}
             <ExpenseBreakdownChart data={dashboardData?.expenseBreakdown || []} loading={loading} />
