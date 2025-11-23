@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Card, CardBody, Input, Button, Chip } from "@nextui-org/react";
+import AdminPanel from "./AdminPanel";
 
 interface ProfileContentProps {
   session: Session;
@@ -334,6 +335,17 @@ export default function ProfileContent({ session: initialSession }: ProfileConte
             )}
           </CardBody>
         </Card>
+
+        {/* Admin Panel - Only visible to admins */}
+        {currentSession.user.isAdmin && (
+          <div>
+            <div className="mb-4">
+              <h2 className="text-2xl font-bold text-[#1D1D1D]">Admin Panel</h2>
+              <p className="text-gray-600 text-sm">Manage users and system settings</p>
+            </div>
+            <AdminPanel />
+          </div>
+        )}
       </div>
     </div>
   );
