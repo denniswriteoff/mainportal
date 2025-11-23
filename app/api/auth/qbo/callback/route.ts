@@ -27,14 +27,14 @@ export async function GET(request: NextRequest) {
       new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        redirect_uri: process.env.QBO_REDIRECT_URI!,
+        redirect_uri: process.env.INTUIT_REDIRECT_URI!,
       }),
       {
         headers: {
           Accept: "application/json",
           "Content-Type": "application/x-www-form-urlencoded",
           Authorization: `Basic ${Buffer.from(
-            `${process.env.QBO_CLIENT_ID}:${process.env.QBO_CLIENT_SECRET}`
+            `${process.env.INTUIT_CLIENT_ID}:${process.env.INTUIT_CLIENT_SECRET}`
           ).toString("base64")}`,
         },
       }
