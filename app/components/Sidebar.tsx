@@ -5,19 +5,33 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Button } from "@nextui-org/react";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { PopupModal } from "react-calendly";
 
 interface SidebarProps {
   accountingService?: string | null;
 }
 
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ReactElement;
+  isCalendly?: boolean;
+}
+
 export default function Sidebar({ accountingService }: SidebarProps) {
   const pathname = usePathname();
+  const [showCalendly, setShowCalendly] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
   const [isExpanded, setIsExpanded] = useState(false);
 
   const isActive = (path: string) => pathname === path;
 
-  const navItems = [
+  const navItems: NavItem[] = [
     {
       name: "Dashboard",
       href: "/",
@@ -56,6 +70,18 @@ export default function Sidebar({ accountingService }: SidebarProps) {
   }
   navItems.push(
     {
+      name: "Schedule Call",
+      href: "#",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      ),
+      isCalendly: true,
+    },
+  );
+  navItems.push(
+    {
       name: "Client Portal",
       href: "https://portal.getwriteoff.com",
       icon: (
@@ -86,6 +112,29 @@ export default function Sidebar({ accountingService }: SidebarProps) {
       <nav className="flex-1 flex flex-col gap-2">
         {navItems.map((item) => {
           const isExternal = item.href.startsWith("http");
+          const isCalendlyButton = item.isCalendly;
+
+          if (isCalendlyButton) {
+            return (
+              <Button
+                key={item.name}
+                isIconOnly={!isExpanded}
+                variant="light"
+                color="default"
+                className={`min-w-10 h-10 ${
+                  isExpanded ? 'w-full justify-start px-4' : 'w-10 justify-center'
+                } text-gray-400 hover:text-white hover:bg-white/10`}
+                onPress={() => setShowCalendly(true)}
+                title={item.name}
+              >
+                <div className="flex items-center gap-3">
+                  {item.icon}
+                  {isExpanded && <span className="text-sm font-medium">{item.name}</span>}
+                </div>
+              </Button>
+            );
+          }
+
           const LinkComponent = isExternal ? "a" : Link;
           const linkProps = isExternal
             ? { href: item.href, target: "_blank", rel: "noopener noreferrer" }
@@ -175,6 +224,16 @@ export default function Sidebar({ accountingService }: SidebarProps) {
           </div>
         </Button>
       </div>
+
+      {/* Calendly Popup */}
+      {isClient && showCalendly && (
+        <PopupModal
+          url="https://calendly.com/dennis-getwriteoff/30min"
+          onModalClose={() => setShowCalendly(false)}
+          open={true}
+          rootElement={document.getElementById('__next') || document.body}
+        />
+      )}
     </aside>
   );
 }
