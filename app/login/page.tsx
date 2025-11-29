@@ -84,11 +84,8 @@ export default function LoginPage() {
                 variant="bordered"
                 isRequired
                 classNames={{
-                  input: "text-white text-base placeholder:text-gray-500",
-                  inputWrapper: "bg-white/5 border-white/10 hover:bg-white/10 rounded-xl h-12 data-[hover=true]:bg-white/10",
-                }}
-                style={{
-                  color: 'white'
+                  input: "text-black text-base placeholder:text-gray-500",
+                  inputWrapper: "bg-white border-gray-300 hover:bg-white rounded-xl h-12 data-[hover=true]:bg-white",
                 }}
               />
             </div>
@@ -105,11 +102,8 @@ export default function LoginPage() {
                 variant="bordered"
                 isRequired
                 classNames={{
-                  input: "text-white text-base placeholder:text-gray-500",
-                  inputWrapper: "bg-white/5 border-white/10 hover:bg-white/10 rounded-xl h-12 data-[hover=true]:bg-white/10",
-                }}
-                style={{
-                  color: 'white'
+                  input: "text-black text-base placeholder:text-gray-500",
+                  inputWrapper: "bg-white border-gray-300 hover:bg-white rounded-xl h-12 data-[hover=true]:bg-white",
                 }}
               />
             </div>

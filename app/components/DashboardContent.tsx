@@ -251,7 +251,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                 </h2>
                 <p className="text-gray-400 mb-6 text-sm">
                   To get started, please connect either QuickBooks Online or Xero
-                  to view your financial dashboard.
+                  to view your financial overview.
                 </p>
                 <div className="flex justify-center gap-3">
                   <Button
@@ -285,7 +285,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
             <div className="flex items-center justify-between bg-[#1D1D1D] rounded-full px-6 py-4 shadow-2xl">
               <div className="flex items-center space-x-3">
                 <h2 className="text-lg font-semibold text-white">
-                  {dashboardData?.organisation?.name || 'Financial'} Dashboard
+                  {dashboardData?.organisation?.name || 'Financial'} Overview
                 </h2>
                 {dashboardData?.timeframe && (
                   <span className="text-sm text-gray-400 bg-white/10 px-3 py-1 rounded-full">
