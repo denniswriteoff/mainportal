@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import axios from "axios";
 import { prisma } from "@/lib/db";
-
-const XERO_TOKEN_URL = "https://identity.xero.com/connect/token";
-const XERO_CONNECTIONS_URL = "https://api.xero.com/connections";
+import { createXeroClient, saveXeroTokens } from "@/lib/xero";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -21,52 +18,29 @@ export async function GET(request: NextRequest) {
       Buffer.from(state, "base64").toString("utf-8")
     );
 
-    // Exchange code for tokens
-    const tokenResponse = await axios.post(
-      XERO_TOKEN_URL,
-      new URLSearchParams({
-        grant_type: "authorization_code",
-        code,
-        redirect_uri: process.env.XERO_REDIRECT_URI!,
-      }),
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${Buffer.from(
-            `${process.env.XERO_CLIENT_ID}:${process.env.XERO_CLIENT_SECRET}`
-          ).toString("base64")}`,
-        },
-      }
-    );
+    // Exchange code for tokens using xero-node
+    const xero = createXeroClient();
+    await xero.initialize();
+    const tokenSet = await xero.apiCallback(request.url);
 
-    const { access_token, refresh_token, expires_in, id_token } =
-      tokenResponse.data;
-
-    // Get tenant information
-    const connectionsResponse = await axios.get(XERO_CONNECTIONS_URL, {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-      },
-    });
-
-    const tenantId = connectionsResponse.data[0]?.tenantId;
-
-    if (!tenantId) {
-      throw new Error("No tenant found");
+    if (!tokenSet.access_token || !tokenSet.refresh_token) {
+        throw new Error("Failed to get tokens from Xero");
     }
 
-    // Save token to database
-    await prisma.xeroToken.create({
-      data: {
-        userId,
-        tenantId,
-        accessToken: access_token,
-        refreshToken: refresh_token,
-        expiresIn: expires_in,
-        idToken: id_token,
-        tokenType: "Bearer",
-        accessTokenExpiresAt: new Date(Date.now() + expires_in * 1000),
-      },
+    const tenantId = xero.tenants[0]?.tenantId;
+    if (!tenantId) {
+        throw new Error("No tenant found");
+    }
+
+    // Save tokens
+    await saveXeroTokens(userId, {
+        accessToken: tokenSet.access_token,
+        refreshToken: tokenSet.refresh_token,
+        idToken: tokenSet.id_token,
+        expiresIn: tokenSet.expires_in || 1800,
+        tokenType: tokenSet.token_type || 'Bearer',
+        scope: tokenSet.scope,
+        tenantId: tenantId
     });
 
     // Update user's accounting service
@@ -83,4 +57,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

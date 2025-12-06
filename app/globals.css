@@ -30,12 +30,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #1D1D1D;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #2a2a2a;
 }
 
 /* Remove default focus outline, NextUI handles this */
@@ -57,4 +57,89 @@ body {
 
 .animate-slide-in {
   animation: slideIn 0.3s ease-out;
+}
+
+/* Mobile viewport height that accounts for dynamic browser UI */
+.mobile-viewport-height {
+  height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile browsers */
+}
+
+/* Prevent zoom on input focus - iOS Safari zooms if font-size < 16px */
+.no-zoom-input {
+  font-size: 16px !important;
+  transform: scale(1);
+  transform-origin: left top;
+}
+
+/* Ensure proper zoom behavior */
+.zoom-container {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Handle wide content in messages */
+.message-content {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Smooth horizontal scrolling for wide content */
+.wide-content-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #1D1D1D transparent;
+}
+
+.wide-content-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.wide-content-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wide-content-scroll::-webkit-scrollbar-thumb {
+  background-color: #1D1D1D;
+  border-radius: 3px;
+}
+
+.wide-content-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #2a2a2a;
+}
+
+/* Typing indicator animation */
+.typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: typing-bounce 1.4s infinite ease-in-out both;
+}
+
+.typing-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0s;
+}
+
+@keyframes typing-bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
 }

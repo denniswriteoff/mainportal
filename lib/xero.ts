@@ -1,78 +1,189 @@
-import axios from "axios";
-import { prisma } from "./db";
+import { XeroClient } from 'xero-node';
+import { prisma } from '@/lib/db';
 
-const XERO_API_URL = "https://api.xero.com/api.xro/2.0";
-const XERO_TOKEN_URL = "https://identity.xero.com/connect/token";
-
-export async function getXeroToken(userId: string) {
-  const tokenRecord = await prisma.xeroToken.findFirst({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
+// Create Xero API client instance
+export function createXeroClient() {
+  return new XeroClient({
+    clientId: process.env.XERO_CLIENT_ID!,
+    clientSecret: process.env.XERO_CLIENT_SECRET!,
+    redirectUris: [process.env.XERO_REDIRECT_URI!],
+    scopes: [
+      'openid',
+      'profile',
+      'email',
+      'accounting.transactions',
+      'accounting.contacts',
+      'accounting.settings',
+      'offline_access',
+      'accounting.reports.read',
+      'payroll.settings',
+      'payroll.employees',
+      'payroll.timesheets'
+    ]
   });
-
-  if (!tokenRecord) {
-    throw new Error("No Xero token found");
-  }
-
-  // Check if token needs refresh
-  if (new Date() >= tokenRecord.accessTokenExpiresAt) {
-    return await refreshXeroToken(tokenRecord.id);
-  }
-
-  return tokenRecord;
 }
 
-export async function refreshXeroToken(tokenId: string) {
-  const tokenRecord = await prisma.xeroToken.findUnique({
-    where: { id: tokenId },
-  });
+export interface XeroTokenData {
+  accessToken: string;
+  refreshToken: string;
+  idToken?: string;
+  expiresIn: number;
+  tokenType: string;
+  scope?: string;
+  tenantId: string;
+}
 
-  if (!tokenRecord) {
-    throw new Error("Token not found");
-  }
+export async function saveXeroTokens(userId: string, tokenData: XeroTokenData) {
+  const expiresAt = new Date(Date.now() + tokenData.expiresIn * 1000);
+  const refreshExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60 days
 
-  const response = await axios.post(
-    XERO_TOKEN_URL,
-    new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: tokenRecord.refreshToken,
-    }),
-    {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${Buffer.from(
-          `${process.env.XERO_CLIENT_ID}:${process.env.XERO_CLIENT_SECRET}`
-        ).toString("base64")}`,
-      },
+  return await prisma.xeroToken.upsert({
+    where: {
+      userId_tenantId: {
+        userId,
+        tenantId: tokenData.tenantId
+      }
+    },
+    update: {
+      accessToken: tokenData.accessToken,
+      refreshToken: tokenData.refreshToken,
+      idToken: tokenData.idToken,
+      expiresIn: tokenData.expiresIn,
+      tokenType: tokenData.tokenType,
+      scope: tokenData.scope,
+      accessTokenExpiresAt: expiresAt,
+      refreshTokenExpiresAt: refreshExpiresAt,
+      updatedAt: new Date()
+    },
+    create: {
+      userId,
+      tenantId: tokenData.tenantId,
+      accessToken: tokenData.accessToken,
+      refreshToken: tokenData.refreshToken,
+      idToken: tokenData.idToken,
+      expiresIn: tokenData.expiresIn,
+      tokenType: tokenData.tokenType,
+      scope: tokenData.scope,
+      accessTokenExpiresAt: expiresAt,
+      refreshTokenExpiresAt: refreshExpiresAt
     }
-  );
-
-  const { access_token, refresh_token, expires_in } = response.data;
-
-  const updatedToken = await prisma.xeroToken.update({
-    where: { id: tokenId },
-    data: {
-      accessToken: access_token,
-      refreshToken: refresh_token,
-      expiresIn: expires_in,
-      accessTokenExpiresAt: new Date(Date.now() + expires_in * 1000),
-    },
   });
-
-  return updatedToken;
 }
 
-export async function fetchXeroData(userId: string, endpoint: string) {
-  const token = await getXeroToken(userId);
-
-  const response = await axios.get(`${XERO_API_URL}/${endpoint}`, {
-    headers: {
-      Authorization: `Bearer ${token.accessToken}`,
-      "xero-tenant-id": token.tenantId,
-      Accept: "application/json",
-    },
+export async function getXeroTokens(userId: string, tenantId?: string) {
+  if (tenantId) {
+    return await prisma.xeroToken.findUnique({
+      where: {
+        userId_tenantId: {
+          userId,
+          tenantId
+        }
+      }
+    });
+  }
+  
+  // Return all tokens for user if no specific tenant
+  return await prisma.xeroToken.findMany({
+    where: { userId }
   });
-
-  return response.data;
 }
 
+export async function refreshXeroToken(userId: string, tenantId: string) {
+  const tokenRecord = await prisma.xeroToken.findUnique({
+    where: {
+      userId_tenantId: {
+        userId,
+        tenantId
+      }
+    }
+  });
+
+  if (!tokenRecord) {
+    throw new Error('No Xero token found for user and tenant');
+  }
+
+  try {
+    const xero = createXeroClient();
+    await xero.initialize();
+    
+    // Set the refresh token for the API client
+    xero.setTokenSet({
+      access_token: tokenRecord.accessToken,
+      refresh_token: tokenRecord.refreshToken,
+      expires_in: tokenRecord.expiresIn,
+      token_type: tokenRecord.tokenType,
+      scope: tokenRecord.scope || undefined
+    });
+
+    const newTokenSet = await xero.refreshToken();
+    
+    if (newTokenSet.access_token && newTokenSet.refresh_token) {
+      await saveXeroTokens(userId, {
+        accessToken: newTokenSet.access_token,
+        refreshToken: newTokenSet.refresh_token,
+        idToken: newTokenSet.id_token,
+        expiresIn: newTokenSet.expires_in || 1800,
+        tokenType: newTokenSet.token_type || 'Bearer',
+        scope: newTokenSet.scope,
+        tenantId
+      });
+
+      return newTokenSet;
+    }
+  } catch (error) {
+    console.error('Failed to refresh Xero token:', error);
+    throw error;
+  }
+}
+
+export async function revokeXeroToken(userId: string, tenantId: string) {
+  const tokenRecord = await prisma.xeroToken.findUnique({
+    where: {
+      userId_tenantId: {
+        userId,
+        tenantId
+      }
+    }
+  });
+
+  if (!tokenRecord) {
+    throw new Error('No Xero token found for user and tenant');
+  }
+
+  try {
+    const xero = createXeroClient();
+    await xero.initialize();
+    
+    // Set the token for revocation
+    xero.setTokenSet({
+      access_token: tokenRecord.accessToken,
+      refresh_token: tokenRecord.refreshToken,
+      expires_in: tokenRecord.expiresIn,
+      token_type: tokenRecord.tokenType,
+      scope: tokenRecord.scope || undefined
+    });
+
+    await xero.revokeToken();
+    
+    // Delete the token from database
+    await prisma.xeroToken.delete({
+      where: {
+        userId_tenantId: {
+          userId,
+          tenantId
+        }
+      }
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Failed to revoke Xero token:', error);
+    throw error;
+  }
+}
+
+export async function getXeroAuthUrl(state?: string): Promise<string> {
+  const xero = createXeroClient();
+  await xero.initialize();
+  return await xero.buildConsentUrl();
+}

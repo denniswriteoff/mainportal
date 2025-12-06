@@ -1,375 +1,607 @@
-import axios from "axios";
-import { getXeroToken, refreshXeroToken } from "./xero";
-
-const XERO_API_URL = "https://api.xero.com/api.xro/2.0";
-
-/**
- * Handle Xero API rate limits with exponential backoff
- * Xero limits: 60 calls/minute per organization, 5,000 calls/day
- */
-async function handleRateLimit(
-  requestFn: () => Promise<any>,
-  maxRetries: number = 3
-): Promise<any> {
-  let lastError: any;
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await requestFn();
-    } catch (error: any) {
-      lastError = error;
-      
-      // Check if it's a rate limit error (429)
-      if (error.response?.status === 429) {
-        const retryAfter = error.response?.headers?.['retry-after'] || 
-                          error.response?.headers?.['Retry-After'];
-        
-        if (retryAfter && attempt < maxRetries) {
-          const waitTime = parseInt(retryAfter, 10) * 1000; // Convert to milliseconds
-          console.log(`Rate limit hit. Waiting ${waitTime}ms before retry (attempt ${attempt + 1}/${maxRetries})...`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-          continue;
-        } else if (attempt < maxRetries) {
-          // Exponential backoff: 2^attempt seconds
-          const waitTime = Math.min(1000 * Math.pow(2, attempt), 30000); // Max 30 seconds
-          console.log(`Rate limit hit. Exponential backoff: waiting ${waitTime}ms (attempt ${attempt + 1}/${maxRetries})...`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-          continue;
-        }
-      }
-      
-      // If not a rate limit error or max retries reached, throw
-      throw error;
-    }
-  }
-  
-  throw lastError;
-}
+import { XeroClient } from 'xero-node';
+import { getXeroTokens, refreshXeroToken, createXeroClient } from './xero';
+import { prisma } from './db';
 
 /**
- * Delay between requests to avoid hitting rate limits
- * Xero allows 60 calls/minute, so we need ~1 second between calls
+ * Creates an authenticated Xero API client for a specific user and tenant
  */
-export function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-/**
- * Get Xero Reports (Profit & Loss)
- */
-export async function getXeroProfitAndLoss(
-  userId: string,
-  options?: {
-    fromDate?: string;
-    toDate?: string;
-  }
-) {
-  let token = await getXeroToken(userId);
-  if (!token) throw new Error("No Xero token found");
-
+export async function getXeroApiClient(userId: string, tenantId: string): Promise<XeroClient | null> {
   try {
-    const params = new URLSearchParams();
-    if (options?.fromDate) params.append("fromDate", options.fromDate);
-    if (options?.toDate) params.append("toDate", options.toDate);
+    const tokenRecord = await getXeroTokens(userId, tenantId);
+    
+    if (!tokenRecord || Array.isArray(tokenRecord)) {
+      console.error('No Xero token found for user and tenant');
+      return null;
+    }
 
-    const response = await handleRateLimit(() =>
-      axios.get(
-        `${XERO_API_URL}/Reports/ProfitAndLoss?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token.accessToken}`,
-            "xero-tenant-id": token.tenantId,
-            Accept: "application/json",
-          },
-        }
-      )
-    );
-
-    return response.data;
-  } catch (error: any) {
-    // If 403 Forbidden (auth error), try refreshing token and retry ONCE
-    if (error.response?.status === 403 && error.response?.data?.Detail === "AuthenticationUnsuccessful") {
-      console.log("Token expired, attempting refresh...");
+    // Check if token is expired and refresh if needed
+    if (tokenRecord.accessTokenExpiresAt < new Date()) {
       try {
-        token = await refreshXeroToken(token.id);
-        
-        const params = new URLSearchParams();
-        if (options?.fromDate) params.append("fromDate", options.fromDate);
-        if (options?.toDate) params.append("toDate", options.toDate);
-
-        const retryResponse = await handleRateLimit(() =>
-          axios.get(
-            `${XERO_API_URL}/Reports/ProfitAndLoss?${params.toString()}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token.accessToken}`,
-                "xero-tenant-id": token.tenantId,
-                Accept: "application/json",
-              },
-            }
-          )
-        );
-
-        return retryResponse.data;
-      } catch (refreshError: any) {
-        console.error("P&L report failed after token refresh:", refreshError.response?.status);
-        // Return null instead of throwing - let caller handle gracefully
+        await refreshXeroToken(userId, tenantId);
+        // Get the refreshed token
+        const refreshedToken = await getXeroTokens(userId, tenantId);
+        if (!refreshedToken || Array.isArray(refreshedToken)) {
+          console.error('Failed to get refreshed token');
+          return null;
+        }
+        tokenRecord.accessToken = refreshedToken.accessToken;
+        tokenRecord.refreshToken = refreshedToken.refreshToken;
+        tokenRecord.expiresIn = refreshedToken.expiresIn;
+        tokenRecord.tokenType = refreshedToken.tokenType;
+        tokenRecord.scope = refreshedToken.scope;
+      } catch (error) {
+        console.error('Failed to refresh token:', error);
         return null;
       }
     }
-    console.error("Error fetching P&L report:", error.message);
-    // Return null instead of throwing - let caller handle gracefully
+
+    const xero = createXeroClient();
+    await xero.initialize();
+
+    // Set the token set for the API client
+    xero.setTokenSet({
+      access_token: tokenRecord.accessToken,
+      refresh_token: tokenRecord.refreshToken,
+      expires_in: tokenRecord.expiresIn,
+      token_type: tokenRecord.tokenType,
+      scope: tokenRecord.scope || undefined
+    });
+
+    return xero;
+  } catch (error) {
+    console.error('Error creating Xero API client:', error);
     return null;
   }
 }
 
 /**
- * Get Xero Reports (Balance Sheet)
+ * Get organization information
  */
-export async function getXeroBalanceSheet(
-  userId: string,
-  date?: string
-) {
-  let token = await getXeroToken(userId);
-  if (!token) throw new Error("No Xero token found");
+export async function getOrganisation(userId: string, tenantId: string) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
 
   try {
-    const params = new URLSearchParams();
-    if (date) params.append("date", date);
-
-    const response = await handleRateLimit(() =>
-      axios.get(
-        `${XERO_API_URL}/Reports/BalanceSheet?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token.accessToken}`,
-            "xero-tenant-id": token.tenantId,
-            Accept: "application/json",
-          },
-        }
-      )
-    );
-
-    return response.data;
-  } catch (error: any) {
-    // If 403 Forbidden (auth error), try refreshing token and retry ONCE
-    if (error.response?.status === 403 && error.response?.data?.Detail === "AuthenticationUnsuccessful") {
-      console.log("Token expired, attempting refresh...");
-      try {
-        token = await refreshXeroToken(token.id);
-        
-        const params = new URLSearchParams();
-        if (date) params.append("date", date);
-
-        const retryResponse = await handleRateLimit(() =>
-          axios.get(
-            `${XERO_API_URL}/Reports/BalanceSheet?${params.toString()}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token.accessToken}`,
-                "xero-tenant-id": token.tenantId,
-                Accept: "application/json",
-              },
-            }
-          )
-        );
-
-        return retryResponse.data;
-      } catch (refreshError: any) {
-        console.error("Balance sheet failed after token refresh:", refreshError.response?.status);
-        // Return null instead of throwing - let caller handle gracefully
-        return null;
-      }
-    }
-    console.error("Error fetching balance sheet:", error.message);
-    // Return null instead of throwing - let caller handle gracefully
-    return null;
+    const response = await xero.accountingApi.getOrganisations(tenantId);
+    return response.body.organisations?.[0] || null;
+  } catch (error) {
+    console.error('Error fetching organisation:', error);
+    throw error;
   }
 }
 
 /**
- * Get Xero Reports (Bank Summary)
+ * Get contacts from Xero
  */
-export async function getXeroBankSummary(
-  userId: string,
-  options?: {
-    date?: string;
-    fromDate?: string;
-    toDate?: string;
+export async function getContacts(userId: string, tenantId: string, options?: {
+  page?: number;
+  where?: string;
+  order?: string;
+}) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
   }
-) {
-  let token = await getXeroToken(userId);
-  if (!token) throw new Error("No Xero token found");
 
   try {
-    const params = new URLSearchParams();
-    if (options?.date) {
-      params.append("date", options.date);
-    } else {
-      if (options?.fromDate) params.append("fromDate", options.fromDate);
-      if (options?.toDate) params.append("toDate", options.toDate);
-    }
-
-    const response = await handleRateLimit(() =>
-      axios.get(
-        `${XERO_API_URL}/Reports/BankSummary?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token.accessToken}`,
-            "xero-tenant-id": token.tenantId,
-            Accept: "application/json",
-          },
-        }
-      )
+    const response = await xero.accountingApi.getContacts(
+      tenantId,
+      undefined, // ifModifiedSince
+      options?.where,
+      options?.order,
+      undefined, // IDs
+      options?.page,
+      undefined, // includeArchived
+      undefined, // summaryOnly
+      undefined,  // searchTerm,
+      20
     );
-
-    return response.data;
-  } catch (error: any) {
-    // If 403 Forbidden (auth error), try refreshing token and retry ONCE
-    if (error.response?.status === 403 && error.response?.data?.Detail === "AuthenticationUnsuccessful") {
-      console.log("Token expired, attempting refresh...");
-      try {
-        token = await refreshXeroToken(token.id);
-        
-        const params = new URLSearchParams();
-        if (options?.date) {
-          params.append("date", options.date);
-        } else {
-          if (options?.fromDate) params.append("fromDate", options.fromDate);
-          if (options?.toDate) params.append("toDate", options.toDate);
-        }
-
-        const retryResponse = await handleRateLimit(() =>
-          axios.get(
-            `${XERO_API_URL}/Reports/BankSummary?${params.toString()}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token.accessToken}`,
-                "xero-tenant-id": token.tenantId,
-                Accept: "application/json",
-              },
-            }
-          )
-        );
-
-        return retryResponse.data;
-      } catch (refreshError: any) {
-        console.error("Bank summary failed after token refresh:", refreshError.response?.status);
-        // Return null instead of throwing - let caller handle gracefully
-        return null;
-      }
-    }
-    console.error("Error fetching bank summary:", error.message);
-    // Return null instead of throwing - let caller handle gracefully
-    return null;
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching contacts:', error);
+    throw error;
   }
 }
 
 /**
- * Get Xero Invoices
+ * Get invoices from Xero
  */
-export async function getXeroInvoices(userId: string) {
-  let token = await getXeroToken(userId);
-  if (!token) throw new Error("No Xero token found");
+export async function getInvoices(userId: string, tenantId: string, options?: {
+  page?: number;
+  where?: string;
+  order?: string;
+  statuses?: string[];
+}) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
 
   try {
-    const response = await handleRateLimit(() =>
-      axios.get(`${XERO_API_URL}/Invoices`, {
-        headers: {
-          Authorization: `Bearer ${token.accessToken}`,
-          "xero-tenant-id": token.tenantId,
-          Accept: "application/json",
-        },
-        params: {
-          where: 'Status=="AUTHORISED" OR Status=="DRAFT"',
-          order: "UpdatedDateUTC DESC",
-        },
-      })
+    const response = await xero.accountingApi.getInvoices(
+      tenantId,
+      undefined, // ifModifiedSince
+      options?.where,
+      options?.order,
+      undefined, // IDs
+      undefined, // invoiceNumbers
+      undefined, // contactIDs
+      options?.statuses,
+      options?.page,
+      undefined, // includeArchived
+      undefined, // createdByMyApp
+      undefined, // unitdp
+      undefined,  // summaryOnly,
+      20
     );
-
-    return response.data;
-  } catch (error: any) {
-    // If 403 Forbidden (auth error), try refreshing token and retry ONCE
-    if (error.response?.status === 403 && error.response?.data?.Detail === "AuthenticationUnsuccessful") {
-      console.log("Token expired, attempting refresh...");
-      try {
-        token = await refreshXeroToken(token.id);
-
-        const retryResponse = await handleRateLimit(() =>
-          axios.get(`${XERO_API_URL}/Invoices`, {
-            headers: {
-              Authorization: `Bearer ${token.accessToken}`,
-              "xero-tenant-id": token.tenantId,
-              Accept: "application/json",
-            },
-            params: {
-              where: 'Status=="AUTHORISED" OR Status=="DRAFT"',
-              order: "UpdatedDateUTC DESC",
-            },
-          })
-        );
-
-        return retryResponse.data;
-      } catch (refreshError: any) {
-        console.error("Invoices failed after token refresh:", refreshError.response?.status);
-        // Return null instead of throwing - let caller handle gracefully
-        return null;
-      }
-    }
-    console.error("Error fetching invoices:", error.message);
-    // Return null instead of throwing - let caller handle gracefully
-    return null;
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching invoices:', error);
+    throw error;
   }
 }
 
 /**
- * Extract account value from report rows
+ * Get accounts from Xero
  */
+export async function getAccounts(userId: string, tenantId: string, options?: {
+  where?: string;
+  order?: string;
+}) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+
+  try {
+    const response = await xero.accountingApi.getAccounts(
+      tenantId,
+      undefined, // ifModifiedSince
+      options?.where,
+      options?.order
+    );
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching accounts:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get items from Xero
+ */
+export async function getItems(userId: string, tenantId: string, options?: {
+  where?: string;
+  order?: string;
+  unitdp?: number;
+}) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+
+  try {
+    const response = await xero.accountingApi.getItems(
+      tenantId,
+      undefined, // ifModifiedSince
+      options?.where,
+      options?.order,
+      options?.unitdp
+    );
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching items:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create a contact in Xero
+ */
+export async function createContact(userId: string, tenantId: string, contactData: any) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+
+  try {
+    const response = await xero.accountingApi.createContacts(tenantId, {
+      contacts: [contactData]
+    });
+    return response.body;
+  } catch (error) {
+    console.error('Error creating contact:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create an invoice in Xero
+ */
+export async function createInvoice(userId: string, tenantId: string, invoiceData: any) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+
+  try {
+    const response = await xero.accountingApi.createInvoices(tenantId, {
+      invoices: [invoiceData]
+    }, undefined, 4); // unitdp = 4 for 4 decimal places
+    return response.body;
+  } catch (error) {
+    console.error('Error creating invoice:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get bank transactions from Xero
+ */
+export async function getBankTransactions(userId: string, tenantId: string, options?: {
+  page?: number;
+  where?: string;
+  order?: string;
+}) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+
+  try {
+    const response = await xero.accountingApi.getBankTransactions(
+      tenantId,
+      undefined, // ifModifiedSince
+      options?.where,
+      options?.order,
+      options?.page,
+      undefined, 
+      20  // page size
+    );
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching bank transactions:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get reports from Xero
+ */
+export async function getReports(userId: string, tenantId: string, reportName: string, options?: Record<string, any>) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+
+  try {
+    const response = await xero.accountingApi.getReportsList(tenantId);
+    // This is a basic implementation - you'd need to implement specific report methods
+    // based on the Xero API documentation for the specific reports you need
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching reports:', error);
+    throw error;
+  }
+}
+
+export async function getProfitAndLossReport(userId: string, tenantId: string, options?: {
+  fromDate?: string;
+  toDate?: string;
+  periods?: number;
+  timeframe?: string;
+  trackingCategoryID?: string;
+  trackingCategoryID2?: string;
+  trackingOptionID?: string;
+  trackingOptionID2?: string;
+  standardLayout?: boolean;
+  paymentsOnly?: boolean;
+}) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+
+  try {
+    console.log('Getting profit and loss report');
+
+    const response = await xero.accountingApi.getReportProfitAndLoss(
+      tenantId,
+      options?.fromDate,
+      options?.toDate,
+      options?.periods,
+      options?.timeframe as any,
+      options?.trackingCategoryID,
+      options?.trackingCategoryID2,
+      options?.trackingOptionID,
+      options?.trackingOptionID2,
+      options?.standardLayout,
+      options?.paymentsOnly
+    );
+    console.log('Profit and loss report response');
+    console.log(response.body);
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching profit and loss report:', error);
+    throw error;
+  }
+}
+
+export async function getBalanceSheetReport(userId: string, tenantId: string, options?: {
+  date?: string;
+  periods?: number;
+  timeframe?: string;
+  trackingOptionID1?: string;
+  trackingOptionID2?: string;
+  standardLayout?: boolean;
+  paymentsOnly?: boolean;
+}) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+
+  try {
+    const response = await xero.accountingApi.getReportBalanceSheet(
+      tenantId,
+      options?.date,
+      options?.periods,
+      options?.timeframe as any,
+      options?.trackingOptionID1,
+      options?.trackingOptionID2,
+      options?.standardLayout,
+      options?.paymentsOnly
+    );
+    console.log('Balance sheet report response');
+    console.log(response.body);
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching balance sheet report:', error);
+    throw error;
+  }
+}
+
+export async function getCreditNotes(userId: string, tenantId: string, options?: {
+  ifModifiedSince?: Date;
+  where?: string;
+  order?: string;
+  page?: number;
+  unitdp?: number;
+}) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+
+  try {
+    const response = await xero.accountingApi.getCreditNotes(
+      tenantId,
+      options?.ifModifiedSince,
+      options?.where,
+      options?.order,
+      options?.page,
+      options?.unitdp,
+     20
+    );
+    console.log('Credit notes response');
+    console.log(response.body);
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching credit notes:', error);
+    throw error;
+  }
+}
+
+export async function getTaxRates(userId: string, tenantId: string, options?: {
+  where?: string;
+  order?: string;
+}) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+
+  try {
+    const response = await xero.accountingApi.getTaxRates(
+      tenantId,
+      options?.where,
+      options?.order
+    );
+    console.log('Tax rates response');
+    console.log(response.body);
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching tax rates:', error);
+    throw error;
+  }
+}
+
+export async function getPayments(userId: string, tenantId: string, options?: {
+  ifModifiedSince?: Date;
+  where?: string;
+  order?: string;
+  page?: number;
+}) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+  try {
+    const response = await xero.accountingApi.getPayments(
+      tenantId,
+      options?.ifModifiedSince,
+      options?.where,
+      options?.order,
+      options?.page,
+      20
+    );
+    console.log('Payments response');
+    console.log(response.body);
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching payments:', error);
+    throw error;
+  }
+}
+
+export async function getTrialBalanceReport(userId: string, tenantId: string, options?: {
+  date?: string;
+  paymentsOnly?: boolean;
+}) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+
+  try {
+    const response = await xero.accountingApi.getReportTrialBalance(
+      tenantId,
+      options?.date,
+      options?.paymentsOnly
+    );
+    console.log('Trial balance report response');
+    console.log(response.body);
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching trial balance report:', error);
+    throw error;
+  }
+}
+
+export async function getPayrollEmployees(userId: string, tenantId: string, options?: {
+  filter?: string;
+  page?: number;
+}) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+
+  try {
+    const response = await xero.payrollNZApi.getEmployees(
+      tenantId,
+      options?.filter,
+      options?.page
+    );
+    console.log('Payroll employees response');
+    console.log(response.body);
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching payroll employees:', error);
+    throw error;
+  }
+}
+
+export async function getAgedPayablesByContact(userId: string, tenantId: string, options?: {
+  contactId?: string;
+  date?: string;
+  fromDate?: string;
+  toDate?: string;
+}) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+
+  try {
+    const response = await xero.accountingApi.getReportAgedPayablesByContact(
+      tenantId,
+      options?.contactId || '',
+      options?.date,
+      options?.fromDate,
+      options?.toDate
+    );
+    console.log('Aged payables by contact response');
+    console.log(response.body);
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching aged payables by contact:', error);
+    throw error;
+  }
+}
+
+export async function getLeaveTypes(userId: string, tenantId: string, options?: {
+  page?: number;
+  activeOnly?: boolean;
+}) {
+  const xero = await getXeroApiClient(userId, tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+
+  try {
+    const response = await xero.payrollNZApi.getLeaveTypes(
+      tenantId,
+      options?.page,
+      options?.activeOnly
+    );
+    console.log('Leave types response');
+    console.log(response.body);
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching leave types:', error);
+    throw error;
+  }
+}
+
+// Wrapper functions for use in API routes without tenantId context
+export async function getXeroProfitAndLoss(userId: string, options: any) {
+  const userTokens = await prisma.xeroToken.findFirst({
+    where: { userId }
+  });
+  if (!userTokens) {
+    throw new Error("No Xero connection found");
+  }
+  return getProfitAndLossReport(userId, userTokens.tenantId, options);
+}
+
+export async function getXeroBalanceSheet(userId: string, date?: string) {
+  const userTokens = await prisma.xeroToken.findFirst({
+    where: { userId }
+  });
+  if (!userTokens) {
+    throw new Error("No Xero connection found");
+  }
+  return getBalanceSheetReport(userId, userTokens.tenantId, { date });
+}
+
 export function extractAccountValue(report: any, accountNames: string[]): number {
   if (!report?.Reports || !Array.isArray(report.Reports)) {
-    return 0;
+    return 0
   }
 
   for (const reportData of report.Reports) {
-    if (reportData.Rows && Array.isArray(reportData.Rows)) {
+    if (reportData.Rows) {
       for (const row of reportData.Rows) {
-        if (row.Cells && Array.isArray(row.Cells) && row.Cells.length >= 2) {
-          const rowName = row.Cells[0]?.Value || "";
-          const rowValue = row.Cells[1]?.Value || "";
+        if ((row.RowType === 'Row' || row.RowType === 'SummaryRow') && row.Cells) {
+          const name = row.Cells[0]?.Value
+          const value = row.Cells[1]?.Value
 
-          if (
-            accountNames.some((name) =>
-              rowName.toLowerCase().includes(name.toLowerCase())
-            )
-          ) {
-            const numericValue = typeof rowValue === "string" 
-              ? parseFloat(rowValue.replace(/[^0-9.-]/g, ""))
-              : rowValue;
-            
+          if (name && accountNames.some(accountName => 
+            name.toLowerCase().includes(accountName.toLowerCase())
+          )) {
+            const numericValue = typeof value === 'string' ? parseFloat(value) : value
             if (!isNaN(numericValue)) {
-              return numericValue;
+              return numericValue
             }
           }
         }
-
-        // Check nested rows
+        
+        // Check nested rows in sections
         if (row.Rows && Array.isArray(row.Rows)) {
           for (const nestedRow of row.Rows) {
-            if (nestedRow.Cells && Array.isArray(nestedRow.Cells) && nestedRow.Cells.length >= 2) {
-              const rowName = nestedRow.Cells[0]?.Value || "";
-              const rowValue = nestedRow.Cells[1]?.Value || "";
+            if ((nestedRow.RowType === 'Row' || nestedRow.RowType === 'SummaryRow') && nestedRow.Cells) {
+              const name = nestedRow.Cells[0]?.Value
+              const value = nestedRow.Cells[1]?.Value
 
-              if (
-                accountNames.some((name) =>
-                  rowName.toLowerCase().includes(name.toLowerCase())
-                )
-              ) {
-                const numericValue = typeof rowValue === "string"
-                  ? parseFloat(rowValue.replace(/[^0-9.-]/g, ""))
-                  : rowValue;
-                
+              if (name && accountNames.some(accountName => 
+                name.toLowerCase().includes(accountName.toLowerCase())
+              )) {
+                const numericValue = typeof value === 'string' ? parseFloat(value) : value
                 if (!isNaN(numericValue)) {
-                  return numericValue;
+                  return numericValue
                 }
               }
             }
@@ -378,75 +610,5 @@ export function extractAccountValue(report: any, accountNames: string[]): number
       }
     }
   }
-
-  return 0;
+  return 0
 }
-
-/**
- * Extract cash in and cash out from Bank Summary report
- * Structure: Reports[0].Rows contains Header, Section rows
- * Section.Rows contains Row (individual accounts) and SummaryRow (totals)
- * Cells: [Account Name, Opening Balance, Cash Received, Cash Spent, Closing Balance]
- */
-export function extractCashMovements(bankSummary: any): { cashIn: number; cashOut: number } {
-  if (!bankSummary?.Reports || !Array.isArray(bankSummary.Reports)) {
-    return { cashIn: 0, cashOut: 0 };
-  }
-
-  let totalCashIn = 0;
-  let totalCashOut = 0;
-  let foundSummaryRow = false;
-
-  for (const reportData of bankSummary.Reports) {
-    if (reportData.Rows && Array.isArray(reportData.Rows)) {
-      // First, try to find SummaryRow(s) which have the totals
-      for (const row of reportData.Rows) {
-        if (row.RowType === "Section" && row.Rows && Array.isArray(row.Rows)) {
-          for (const nestedRow of row.Rows) {
-            if (nestedRow.RowType === "SummaryRow" && nestedRow.Cells && Array.isArray(nestedRow.Cells) && nestedRow.Cells.length >= 4) {
-              // Cells[2] = Cash Received (cashIn)
-              // Cells[3] = Cash Spent (cashOut)
-              const cashReceived = parseFloat(nestedRow.Cells[2]?.Value || "0");
-              const cashSpent = parseFloat(nestedRow.Cells[3]?.Value || "0");
-              
-              if (!isNaN(cashReceived)) {
-                totalCashIn += cashReceived;
-              }
-              if (!isNaN(cashSpent)) {
-                totalCashOut += cashSpent;
-              }
-              
-              foundSummaryRow = true;
-            }
-          }
-        }
-      }
-      
-      // If no SummaryRow found, sum individual Row entries
-      if (!foundSummaryRow) {
-        for (const row of reportData.Rows) {
-          if (row.RowType === "Section" && row.Rows && Array.isArray(row.Rows)) {
-            for (const nestedRow of row.Rows) {
-              if (nestedRow.RowType === "Row" && nestedRow.Cells && Array.isArray(nestedRow.Cells) && nestedRow.Cells.length >= 4) {
-                // Cells[2] = Cash Received (cashIn)
-                // Cells[3] = Cash Spent (cashOut)
-                const cashReceived = parseFloat(nestedRow.Cells[2]?.Value || "0");
-                const cashSpent = parseFloat(nestedRow.Cells[3]?.Value || "0");
-                
-                if (!isNaN(cashReceived)) {
-                  totalCashIn += cashReceived;
-                }
-                if (!isNaN(cashSpent)) {
-                  totalCashOut += cashSpent;
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return { cashIn: totalCashIn, cashOut: totalCashOut };
-}
-
