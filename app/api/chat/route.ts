@@ -32,8 +32,11 @@ export async function POST(req: Request) {
 
   try {
     const settings = await prisma.systemSettings.findFirst();
-    if (settings?.systemPrompt) {
-      systemPrompt = settings.systemPrompt;
+    if (settings?.settings && typeof settings.settings === 'object' && 'systemPrompt' in settings.settings) {
+      const customPrompt = (settings.settings as any).systemPrompt;
+      if (typeof customPrompt === 'string' && customPrompt.trim()) {
+        systemPrompt = customPrompt;
+      }
     }
   } catch (error) {
     console.error('Error loading system settings:', error);

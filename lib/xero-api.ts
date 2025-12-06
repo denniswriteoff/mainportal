@@ -612,3 +612,113 @@ export function extractAccountValue(report: any, accountNames: string[]): number
   }
   return 0
 }
+
+/**
+ * Utility function to delay execution
+ */
+export function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Get bank summary report from Xero
+ * Wrapper function that automatically gets tenantId from user's tokens
+ */
+export async function getXeroBankSummary(userId: string, options?: {
+  fromDate?: string;
+  toDate?: string;
+}) {
+  const userTokens = await prisma.xeroToken.findFirst({
+    where: { userId }
+  });
+  if (!userTokens) {
+    throw new Error("No Xero connection found");
+  }
+  
+  const xero = await getXeroApiClient(userId, userTokens.tenantId);
+  if (!xero) {
+    throw new Error('Failed to create Xero API client');
+  }
+
+  try {
+    const response = await xero.accountingApi.getReportBankSummary(
+      userTokens.tenantId,
+      options?.fromDate,
+      options?.toDate
+    );
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching bank summary report:', error);
+    throw error;
+  }
+}
+
+/**
+ * Extract cash movements (cash in and cash out) from bank summary report
+ */
+export function extractCashMovements(bankSummary: any): {
+  cashIn: number;
+  cashOut: number;
+} {
+  const result = {
+    cashIn: 0,
+    cashOut: 0,
+  };
+
+  if (!bankSummary?.Reports || !Array.isArray(bankSummary.Reports)) {
+    return result;
+  }
+
+  for (const reportData of bankSummary.Reports) {
+    if (reportData.Rows) {
+      for (const row of reportData.Rows) {
+        // Check for cash in (receipts, deposits, etc.)
+        if (row.RowType === 'SummaryRow' && row.Cells) {
+          const name = row.Cells[0]?.Value?.toString().toLowerCase() || '';
+          const value = row.Cells[1]?.Value;
+          
+          if (name.includes('total receipts') || name.includes('total cash in') || name.includes('total deposits')) {
+            const numericValue = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
+            if (!isNaN(numericValue)) {
+              result.cashIn = Math.abs(numericValue);
+            }
+          }
+          
+          // Check for cash out (payments, withdrawals, etc.)
+          if (name.includes('total payments') || name.includes('total cash out') || name.includes('total withdrawals')) {
+            const numericValue = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
+            if (!isNaN(numericValue)) {
+              result.cashOut = Math.abs(numericValue);
+            }
+          }
+        }
+        
+        // Check nested rows
+        if (row.Rows && Array.isArray(row.Rows)) {
+          for (const nestedRow of row.Rows) {
+            if (nestedRow.RowType === 'SummaryRow' && nestedRow.Cells) {
+              const name = nestedRow.Cells[0]?.Value?.toString().toLowerCase() || '';
+              const value = nestedRow.Cells[1]?.Value;
+              
+              if (name.includes('total receipts') || name.includes('total cash in') || name.includes('total deposits')) {
+                const numericValue = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
+                if (!isNaN(numericValue)) {
+                  result.cashIn = Math.abs(numericValue);
+                }
+              }
+              
+              if (name.includes('total payments') || name.includes('total cash out') || name.includes('total withdrawals')) {
+                const numericValue = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
+                if (!isNaN(numericValue)) {
+                  result.cashOut = Math.abs(numericValue);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return result;
+}
