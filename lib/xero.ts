@@ -2,7 +2,7 @@ import { XeroClient } from 'xero-node';
 import { prisma } from '@/lib/db';
 
 // Create Xero API client instance
-export function createXeroClient() {
+export function createXeroClient(state?: string) {
   return new XeroClient({
     clientId: process.env.XERO_CLIENT_ID!,
     clientSecret: process.env.XERO_CLIENT_SECRET!,
@@ -19,7 +19,8 @@ export function createXeroClient() {
       'payroll.settings',
       'payroll.employees',
       'payroll.timesheets'
-    ]
+    ],
+    state: state
   });
 }
 
@@ -183,7 +184,7 @@ export async function revokeXeroToken(userId: string, tenantId: string) {
 }
 
 export async function getXeroAuthUrl(state?: string): Promise<string> {
-  const xero = createXeroClient();
+  const xero = createXeroClient(state);
   await xero.initialize();
   return await xero.buildConsentUrl();
 }

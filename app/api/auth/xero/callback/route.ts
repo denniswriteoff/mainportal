@@ -6,6 +6,14 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
   const state = searchParams.get("state");
+  const error = searchParams.get("error");
+  const errorDescription = searchParams.get("error_description");
+
+  if (error) {
+    return NextResponse.redirect(
+      new URL(`/profile?error=${encodeURIComponent(errorDescription || error)}`, request.url)
+    );
+  }
 
   if (!code || !state) {
     return NextResponse.redirect(
@@ -19,13 +27,16 @@ export async function GET(request: NextRequest) {
     );
 
     // Exchange code for tokens using xero-node
-    const xero = createXeroClient();
+    const xero = createXeroClient(state);
     await xero.initialize();
     const tokenSet = await xero.apiCallback(request.url);
 
     if (!tokenSet.access_token || !tokenSet.refresh_token) {
         throw new Error("Failed to get tokens from Xero");
     }
+
+    // Update tenants to get the list of connected organizations
+    await xero.updateTenants();
 
     const tenantId = xero.tenants[0]?.tenantId;
     if (!tenantId) {
@@ -53,7 +64,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Xero OAuth error:", error);
     return NextResponse.redirect(
-      new URL("/profile?error=Failed to connect Xero", request.url)
+      new URL(`/profile?error=${encodeURIComponent(error instanceof Error ? error.message : "Failed to connect Xero")}`, request.url)
     );
   }
 }
