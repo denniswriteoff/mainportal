@@ -568,16 +568,16 @@ export async function getXeroBalanceSheet(userId: string, date?: string) {
 }
 
 export function extractAccountValue(report: any, accountNames: string[]): number {
-  if (!report?.Reports || !Array.isArray(report.Reports)) {
+  if (!report?.reports || !Array.isArray(report.reports)) {
     return 0
   }
 
-  for (const reportData of report.Reports) {
-    if (reportData.Rows) {
-      for (const row of reportData.Rows) {
-        if ((row.RowType === 'Row' || row.RowType === 'SummaryRow') && row.Cells) {
-          const name = row.Cells[0]?.Value
-          const value = row.Cells[1]?.Value
+  for (const reportData of report.reports) {
+    if (reportData.rows) {
+      for (const row of reportData.rows) {
+        if ((row.rowType === 'Row' || row.rowType === 'SummaryRow') && row.cells) {
+          const name = row.cells[0]?.value
+          const value = row.cells[1]?.value
 
           if (name && accountNames.some(accountName => 
             name.toLowerCase().includes(accountName.toLowerCase())
@@ -590,11 +590,11 @@ export function extractAccountValue(report: any, accountNames: string[]): number
         }
         
         // Check nested rows in sections
-        if (row.Rows && Array.isArray(row.Rows)) {
-          for (const nestedRow of row.Rows) {
-            if ((nestedRow.RowType === 'Row' || nestedRow.RowType === 'SummaryRow') && nestedRow.Cells) {
-              const name = nestedRow.Cells[0]?.Value
-              const value = nestedRow.Cells[1]?.Value
+        if (row.rows && Array.isArray(row.rows)) {
+          for (const nestedRow of row.rows) {
+            if ((nestedRow.rowType === 'Row' || nestedRow.rowType === 'SummaryRow') && nestedRow.cells) {
+              const name = nestedRow.cells[0]?.value
+              const value = nestedRow.cells[1]?.value
 
               if (name && accountNames.some(accountName => 
                 name.toLowerCase().includes(accountName.toLowerCase())
@@ -665,17 +665,17 @@ export function extractCashMovements(bankSummary: any): {
     cashOut: 0,
   };
 
-  if (!bankSummary?.Reports || !Array.isArray(bankSummary.Reports)) {
+  if (!bankSummary?.reports || !Array.isArray(bankSummary.reports)) {
     return result;
   }
 
-  for (const reportData of bankSummary.Reports) {
-    if (reportData.Rows) {
-      for (const row of reportData.Rows) {
+  for (const reportData of bankSummary.reports) {
+    if (reportData.rows) {
+      for (const row of reportData.rows) {
         // Check for cash in (receipts, deposits, etc.)
-        if (row.RowType === 'SummaryRow' && row.Cells) {
-          const name = row.Cells[0]?.Value?.toString().toLowerCase() || '';
-          const value = row.Cells[1]?.Value;
+        if (row.rowType === 'SummaryRow' && row.cells) {
+          const name = row.cells[0]?.value?.toString().toLowerCase() || '';
+          const value = row.cells[1]?.value;
           
           if (name.includes('total receipts') || name.includes('total cash in') || name.includes('total deposits')) {
             const numericValue = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
@@ -694,11 +694,11 @@ export function extractCashMovements(bankSummary: any): {
         }
         
         // Check nested rows
-        if (row.Rows && Array.isArray(row.Rows)) {
-          for (const nestedRow of row.Rows) {
-            if (nestedRow.RowType === 'SummaryRow' && nestedRow.Cells) {
-              const name = nestedRow.Cells[0]?.Value?.toString().toLowerCase() || '';
-              const value = nestedRow.Cells[1]?.Value;
+        if (row.rows && Array.isArray(row.rows)) {
+          for (const nestedRow of row.rows) {
+            if (nestedRow.rowType === 'SummaryRow' && nestedRow.cells) {
+              const name = nestedRow.cells[0]?.value?.toString().toLowerCase() || '';
+              const value = nestedRow.cells[1]?.value;
               
               if (name.includes('total receipts') || name.includes('total cash in') || name.includes('total deposits')) {
                 const numericValue = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;

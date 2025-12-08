@@ -455,30 +455,30 @@ function extractQboExpenseBreakdown(report: any): Array<{ name: string; value: n
 
 // Helper functions for Xero
 function extractTotalOperatingExpenses(report: any): number {
-  if (!report?.Reports || !Array.isArray(report.Reports)) {
+  if (!report?.reports || !Array.isArray(report.reports)) {
     return 0;
   }
   const costOfSales = extractAccountValue(report, ["Total Cost of Sales"]);
 
-  for (const reportData of report.Reports) {
-    if (reportData.Rows) {
-      for (const row of reportData.Rows) {
+  for (const reportData of report.reports) {
+    if (reportData.rows) {
+      for (const row of reportData.rows) {
         // Check if this is the "Less Operating Expenses" section
         if (
-          row.RowType === "Section" &&
-          row.Title &&
-          row.Title.toLowerCase().includes("less operating expenses")
+          row.rowType === "Section" &&
+          row.title &&
+          row.title.toLowerCase().includes("less operating expenses")
         ) {
-          if (row.Rows && Array.isArray(row.Rows)) {
-            for (const expenseRow of row.Rows) {
+          if (row.rows && Array.isArray(row.rows)) {
+            for (const expenseRow of row.rows) {
               // Look for the "Total Operating Expenses" summary row
               if (
-                expenseRow.RowType === "SummaryRow" &&
-                expenseRow.Cells &&
-                expenseRow.Cells.length >= 2
+                expenseRow.rowType === "SummaryRow" &&
+                expenseRow.cells &&
+                expenseRow.cells.length >= 2
               ) {
-                const name = expenseRow.Cells[0]?.Value;
-                const value = expenseRow.Cells[1]?.Value;
+                const name = expenseRow.cells[0]?.value;
+                const value = expenseRow.cells[1]?.value;
 
                 if (
                   name &&
@@ -511,28 +511,28 @@ function extractExpenseBreakdown(
     expenses.push({ name: "Cost of Sales", value: costOfSales });
   }
 
-  if (!report?.Reports || !Array.isArray(report.Reports)) {
+  if (!report?.reports || !Array.isArray(report.reports)) {
     return [];
   }
 
-  for (const reportData of report.Reports) {
-    if (reportData.Rows) {
-      for (const row of reportData.Rows) {
+  for (const reportData of report.reports) {
+    if (reportData.rows) {
+      for (const row of reportData.rows) {
         // Check if this is the "Less Operating Expenses" section
         if (
-          row.RowType === "Section" &&
-          row.Title &&
-          row.Title.toLowerCase().includes("less operating expenses")
+          row.rowType === "Section" &&
+          row.title &&
+          row.title.toLowerCase().includes("less operating expenses")
         ) {
-          if (row.Rows && Array.isArray(row.Rows)) {
-            for (const expenseRow of row.Rows) {
+          if (row.rows && Array.isArray(row.rows)) {
+            for (const expenseRow of row.rows) {
               if (
-                expenseRow.RowType === "Row" &&
-                expenseRow.Cells &&
-                expenseRow.Cells.length >= 2
+                expenseRow.rowType === "Row" &&
+                expenseRow.cells &&
+                expenseRow.cells.length >= 2
               ) {
-                const name = expenseRow.Cells[0]?.Value;
-                const value = expenseRow.Cells[1]?.Value;
+                const name = expenseRow.cells[0]?.value;
+                const value = expenseRow.cells[1]?.value;
 
                 if (name && value) {
                   const expenseName = name.toString();
