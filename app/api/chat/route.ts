@@ -1,7 +1,7 @@
 import { AnthropicProviderOptions, createAnthropic } from '@ai-sdk/anthropic';
 import { streamText, type UIMessage, convertToModelMessages, tool, consumeStream } from 'ai';
 import { prisma } from '@/lib/db';
-import { getXeroOrganisationTool, getXeroContactsTool, getXeroInvoicesTool, getXeroAccountsTool, getXeroItemsTool, getXeroBankTransactionsTool, getXeroProfitAndLossTool, getXeroBalanceSheetTool, getXeroCreditNotesTool, getXeroTaxRatesTool, getXeroPaymentsTool, getXeroTrialBalanceTool, getXeroPayrollEmployeesTool, getXeroAgedPayablesTool, getXeroLeaveTypesTool } from '@/lib/tools';
+import { getXeroOrganisationTool, getXeroContactsTool, getXeroInvoicesTool, getXeroAccountsTool, getXeroItemsTool, getXeroBankTransactionsTool, getXeroProfitAndLossTool, getXeroBalanceSheetTool, getXeroCreditNotesTool, getXeroTaxRatesTool, getXeroPaymentsTool, getXeroTrialBalanceTool, getXeroPayrollEmployeesTool, getXeroAgedPayablesTool, getXeroLeaveTypesTool, getQboCompanyInfoTool, getQboCustomersTool, getQboInvoicesTool, getQboInvoiceByIdTool, getQboPaymentsTool, getQboPaymentByIdTool, getQboPurchasesTool, getQboPurchaseByIdTool, getQboBillsTool, getQboBillByIdTool, getQboAccountsTool, getQboAccountByIdTool, getQboCustomerByIdTool, getQboVendorsTool, getQboVendorByIdTool, getQboEstimatesTool, getQboProfitAndLossTool, getQboSalesTool, getQboExpensesTool, getQboItemSalesTool, getQboCustomerSalesTool, getQboVendorExpensesTool, getQboTaxAgencyTool, getQboTaxReportTool } from '@/lib/tools';
 import { z } from 'zod';
 
 // Allow streaming responses up to 30 seconds
@@ -25,6 +25,10 @@ export async function POST(req: Request) {
     try { return new URL(req.url).origin; } catch { return ''; }
   })();
   const cookieHeader = req.headers.get('cookie') || '';
+  
+  // Detect if this is a QBO chat request
+  const referer = req.headers.get('referer') || '';
+  const isQboChat = referer.includes('/qbo-chat') || body.service === 'qbo';
 
 
   // Get global system prompt
@@ -43,8 +47,45 @@ export async function POST(req: Request) {
     // Continue with default system prompt
   }    
 
-  // Add Xero integration information
-  const xeroSection = `
+  // Add integration information based on chat type
+  if (isQboChat) {
+    const qboSection = `
+
+**QuickBooks Online Integration:**
+You have access to QuickBooks Online accounting tools to retrieve financial data:
+- **getQboCompanyInfo**: Get company/organization details from QuickBooks Online
+- **getQboCustomers**: Get customers and contacts
+- **getQboInvoices**: Get sales invoices
+- **getQboInvoiceById**: Get a specific invoice by ID
+- **getQboPayments**: Get customer payments
+- **getQboPaymentById**: Get a specific payment by ID
+- **getQboPurchases**: Get purchase transactions
+- **getQboPurchaseById**: Get a specific purchase by ID
+- **getQboBills**: Get bills
+- **getQboBillById**: Get a specific bill by ID
+- **getQboAccounts**: Get chart of accounts (assets, liabilities, etc.)
+- **getQboAccountById**: Get a specific account by ID
+- **getQboCustomerById**: Get a specific customer by ID
+- **getQboVendors**: Get vendors
+- **getQboVendorById**: Get a specific vendor by ID
+- **getQboEstimates**: Get estimates/quotes
+- **getQboProfitAndLoss**: Get profit and loss report showing revenue, expenses, and net profit/loss
+- **getQboSales**: Get sales report showing sales by customer
+- **getQboExpenses**: Get expenses report
+- **getQboItemSales**: Get item sales report
+- **getQboCustomerSales**: Get customer sales report
+- **getQboVendorExpenses**: Get vendor expenses report
+- **getQboTaxAgency**: Get tax agencies
+- **getQboTaxReport**: Get tax summary report
+
+**Important Notes:**
+- These are read-only tools - you can only retrieve data, not create or modify
+- Use filters and sorting to get specific data the user needs
+- Results are limited to 20-50 items per request for performance`;
+
+    systemPrompt += qboSection;
+  } else {
+    const xeroSection = `
 
 **Xero Integration:**
 You have access to Xero accounting tools to retrieve financial data:
@@ -69,7 +110,8 @@ You have access to Xero accounting tools to retrieve financial data:
 - Use filters and sorting to get specific data the user needs
 - Results are limited to 20-50 items per request for performance`;
 
-  systemPrompt += xeroSection;
+    systemPrompt += xeroSection;
+  }
   systemPrompt = systemPrompt + `
 
 Today's date is ${new Date().toLocaleDateString()}.`;
@@ -148,6 +190,92 @@ Today's date is ${new Date().toLocaleDateString()}.`;
   });
 
 
+  // Select tools based on chat type
+  const tools = isQboChat ? {
+    getQboCompanyInfo: getQboCompanyInfoTool,
+    getQboCustomers: getQboCustomersTool,
+    getQboInvoices: getQboInvoicesTool,
+    getQboInvoiceById: getQboInvoiceByIdTool,
+    getQboPayments: getQboPaymentsTool,
+    getQboPaymentById: getQboPaymentByIdTool,
+    getQboPurchases: getQboPurchasesTool,
+    getQboPurchaseById: getQboPurchaseByIdTool,
+    getQboBills: getQboBillsTool,
+    getQboBillById: getQboBillByIdTool,
+    getQboAccounts: getQboAccountsTool,
+    getQboAccountById: getQboAccountByIdTool,
+    getQboCustomerById: getQboCustomerByIdTool,
+    getQboVendors: getQboVendorsTool,
+    getQboVendorById: getQboVendorByIdTool,
+    getQboEstimates: getQboEstimatesTool,
+    getQboProfitAndLoss: getQboProfitAndLossTool,
+    getQboSales: getQboSalesTool,
+    getQboExpenses: getQboExpensesTool,
+    getQboItemSales: getQboItemSalesTool,
+    getQboCustomerSales: getQboCustomerSalesTool,
+    getQboVendorExpenses: getQboVendorExpensesTool,
+    getQboTaxAgency: getQboTaxAgencyTool,
+    getQboTaxReport: getQboTaxReportTool,
+    addDashboardWidget: tool<{ title: string; type: 'line' | 'bar' | 'pie' | 'gauge' | 'number'; data?: unknown; w?: 1 | 2 | 3; h?: 1 | 2 | 3; chatId?: string }, any>({
+      description: 'Add a dashboard widget to the right panel. Provide title, type, data, and optional size w/h in grid units (1-3). Types: line, bar, pie (charts), gauge (circular progress), number (single value display).',
+      inputSchema: z.object({
+        title: z.string().describe('Widget title'),
+        type: z.enum(['line', 'bar', 'pie', 'gauge', 'number']).describe('Widget type: line/bar/pie charts, gauge (circular progress), or number (single value)'),
+        data: z.unknown().describe('Data payload - for charts: {labels, values} or Chart.js format; for gauge: {value, min?, max?}; for number: {value, unit?, subtitle?}').optional(),
+        w: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+        h: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+      }),
+      execute: async (input) => {
+        const url = `${origin}/api/dashboard/widgets`;
+        const body = { ...input, chatId: input.chatId ?? chatId };
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', cookie: cookieHeader } as any, body: JSON.stringify(body) });
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          return { error: true, status: res.status, ...error };
+        }
+        const json = await res.json();
+        return JSON.stringify(json, null, 2);
+      },
+    }),
+  } : {
+    getXeroOrganisation: getXeroOrganisationTool,
+    getXeroContacts: getXeroContactsTool,
+    getXeroInvoices: getXeroInvoicesTool,
+    getXeroAccounts: getXeroAccountsTool,
+    getXeroItems: getXeroItemsTool,
+    getXeroBankTransactions: getXeroBankTransactionsTool,
+    getXeroProfitAndLoss: getXeroProfitAndLossTool,
+    getXeroBalanceSheet: getXeroBalanceSheetTool,
+    getXeroCreditNotes: getXeroCreditNotesTool,
+    getXeroTaxRates: getXeroTaxRatesTool,
+    getXeroPayments: getXeroPaymentsTool,
+    getXeroTrialBalance: getXeroTrialBalanceTool,
+    getXeroPayrollEmployees: getXeroPayrollEmployeesTool,
+    getXeroAgedPayables: getXeroAgedPayablesTool,
+    getXeroLeaveTypes: getXeroLeaveTypesTool,
+    addDashboardWidget: tool<{ title: string; type: 'line' | 'bar' | 'pie' | 'gauge' | 'number'; data?: unknown; w?: 1 | 2 | 3; h?: 1 | 2 | 3; chatId?: string }, any>({
+      description: 'Add a dashboard widget to the right panel. Provide title, type, data, and optional size w/h in grid units (1-3). Types: line, bar, pie (charts), gauge (circular progress), number (single value display).',
+      inputSchema: z.object({
+        title: z.string().describe('Widget title'),
+        type: z.enum(['line', 'bar', 'pie', 'gauge', 'number']).describe('Widget type: line/bar/pie charts, gauge (circular progress), or number (single value)'),
+        data: z.unknown().describe('Data payload - for charts: {labels, values} or Chart.js format; for gauge: {value, min?, max?}; for number: {value, unit?, subtitle?}').optional(),
+        w: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+        h: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+      }),
+      execute: async (input) => {
+        const url = `${origin}/api/dashboard/widgets`;
+        const body = { ...input, chatId: input.chatId ?? chatId };
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', cookie: cookieHeader } as any, body: JSON.stringify(body) });
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          return { error: true, status: res.status, ...error };
+        }
+        const json = await res.json();
+        return JSON.stringify(json, null, 2);
+      },
+    }),
+  };
+
   const result = streamText({
     model: anthropic.languageModel('claude-sonnet-4-5-20250929'),
     messages: convertToModelMessages(messages),
@@ -157,44 +285,7 @@ Today's date is ${new Date().toLocaleDateString()}.`;
         thinking: enableThinking ? { type: 'enabled', budgetTokens: 2000 } : { type: 'disabled' },
       } satisfies AnthropicProviderOptions,
     },
-    tools: {
-      getXeroOrganisation: getXeroOrganisationTool,
-      getXeroContacts: getXeroContactsTool,
-      getXeroInvoices: getXeroInvoicesTool,
-      getXeroAccounts: getXeroAccountsTool,
-      getXeroItems: getXeroItemsTool,
-      getXeroBankTransactions: getXeroBankTransactionsTool,
-      getXeroProfitAndLoss: getXeroProfitAndLossTool,
-      getXeroBalanceSheet: getXeroBalanceSheetTool,
-      getXeroCreditNotes: getXeroCreditNotesTool,
-      getXeroTaxRates: getXeroTaxRatesTool,
-      getXeroPayments: getXeroPaymentsTool,
-      getXeroTrialBalance: getXeroTrialBalanceTool,
-      getXeroPayrollEmployees: getXeroPayrollEmployeesTool,
-      getXeroAgedPayables: getXeroAgedPayablesTool,
-      getXeroLeaveTypes: getXeroLeaveTypesTool,
-      addDashboardWidget: tool<{ title: string; type: 'line' | 'bar' | 'pie' | 'gauge' | 'number'; data?: unknown; w?: 1 | 2 | 3; h?: 1 | 2 | 3; chatId?: string }, any>({
-        description: 'Add a dashboard widget to the right panel. Provide title, type, data, and optional size w/h in grid units (1-3). Types: line, bar, pie (charts), gauge (circular progress), number (single value display).',
-        inputSchema: z.object({
-          title: z.string().describe('Widget title'),
-          type: z.enum(['line', 'bar', 'pie', 'gauge', 'number']).describe('Widget type: line/bar/pie charts, gauge (circular progress), or number (single value)'),
-          data: z.unknown().describe('Data payload - for charts: {labels, values} or Chart.js format; for gauge: {value, min?, max?}; for number: {value, unit?, subtitle?}').optional(),
-          w: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
-          h: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
-        }),
-        execute: async (input) => {
-          const url = `${origin}/api/dashboard/widgets`;
-          const body = { ...input, chatId: input.chatId ?? chatId };
-          const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', cookie: cookieHeader } as any, body: JSON.stringify(body) });
-          if (!res.ok) {
-            const error = await res.json().catch(() => ({}));
-            return { error: true, status: res.status, ...error };
-          }
-          const json = await res.json();
-          return JSON.stringify(json, null, 2);
-        },
-      }),
-    }
+    tools: tools as any
   });
 
   // consume the stream to ensure it runs to completion & triggers onFinish

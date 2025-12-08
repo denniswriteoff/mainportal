@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { prisma } from '@/lib/db';
 import { getOrganisation, getContacts, getInvoices, getAccounts, getItems, getBankTransactions, getProfitAndLossReport, getBalanceSheetReport, getCreditNotes, getTaxRates, getPayments, getTrialBalanceReport, getPayrollEmployees, getAgedPayablesByContact, getLeaveTypes } from './xero-api';
+import { getCompanyInfo, getCustomers, getVendors, getInvoices as getQboInvoices, getInvoiceById, getPayments as getQboPayments, getPaymentById, getPurchases, getPurchaseById, getBills, getBillById, getAccounts as getQboAccounts, getAccountById, getEstimates, getProfitAndLossReport as getQboProfitAndLossReport, getSalesReport, getExpensesReport, getItemSalesReport, getCustomerSalesReport, getVendorExpensesReport, getTaxAgency, getTaxReport } from './qbo-api';
 import { authOptions } from '@/lib/auth';
 
 // Xero Tools - Read-only operations
@@ -1025,6 +1026,1489 @@ export const getXeroLeaveTypesTool = tool({
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get leave types'
+      };
+    }
+  }
+});
+
+// QBO Tools - Read-only operations
+export const getQboCompanyInfoTool = tool({
+  description: "Get QuickBooks Online company information including name, address, tax settings, and other business details. Automatically uses your connected QBO company.",
+  inputSchema: z.object({}),
+  execute: async () => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const companyInfo = await getCompanyInfo(userId, userTokens.realmId);
+      
+      if (!companyInfo) {
+        return {
+          success: false,
+          error: "No company information found"
+        };
+      }
+
+      return {
+        success: true,
+        companyInfo: companyInfo
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get company information'
+      };
+    }
+  }
+});
+
+export const getQboCustomersTool = tool({
+  description: "Get customers from QuickBooks Online. Use filters to get specific customers.",
+  inputSchema: z.object({
+    maxResults: z.number().optional().describe("Maximum number of results (default: 20)"),
+    startPosition: z.number().optional().describe("Starting position for pagination (default: 1)"),
+    where: z.string().optional().describe("Filter criteria (e.g., 'Active = true')")
+  }),
+  execute: async ({ maxResults = 20, startPosition = 1, where }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const customersResponse = await getCustomers(userId, userTokens.realmId, { maxResults, startPosition, where });
+      
+      return {
+        success: true,
+        customers: customersResponse.customers || []
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get customers'
+      };
+    }
+  }
+});
+
+export const getQboInvoicesTool = tool({
+  description: "Get invoices from QuickBooks Online including sales invoices. Use filters to get specific invoices.",
+  inputSchema: z.object({
+    maxResults: z.number().optional().describe("Maximum number of results (default: 20)"),
+    startPosition: z.number().optional().describe("Starting position for pagination (default: 1)"),
+    where: z.string().optional().describe("Filter criteria (e.g., 'TxnDate >= '2024-01-01'')")
+  }),
+  execute: async ({ maxResults = 20, startPosition = 1, where }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const invoicesResponse = await getQboInvoices(userId, userTokens.realmId, { maxResults, startPosition, where });
+      
+      return {
+        success: true,
+        invoices: invoicesResponse.invoices || []
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get invoices'
+      };
+    }
+  }
+});
+
+export const getQboInvoiceByIdTool = tool({
+  description: "Get a specific invoice from QuickBooks Online by its ID.",
+  inputSchema: z.object({
+    invoiceId: z.string().describe("The ID of the invoice to retrieve")
+  }),
+  execute: async ({ invoiceId }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const invoice = await getInvoiceById(userId, userTokens.realmId, invoiceId);
+      
+      if (!invoice) {
+        return {
+          success: false,
+          error: "Invoice not found"
+        };
+      }
+
+      return {
+        success: true,
+        invoice: invoice
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get invoice'
+      };
+    }
+  }
+});
+
+export const getQboPaymentsTool = tool({
+  description: "Get payments from QuickBooks Online including customer payments. Use filters to get specific payments.",
+  inputSchema: z.object({
+    maxResults: z.number().optional().describe("Maximum number of results (default: 20)"),
+    startPosition: z.number().optional().describe("Starting position for pagination (default: 1)"),
+    where: z.string().optional().describe("Filter criteria")
+  }),
+  execute: async ({ maxResults = 20, startPosition = 1, where }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const paymentsResponse = await getQboPayments(userId, userTokens.realmId, { maxResults, startPosition, where });
+      
+      return {
+        success: true,
+        payments: paymentsResponse.payments || []
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get payments'
+      };
+    }
+  }
+});
+
+export const getQboPaymentByIdTool = tool({
+  description: "Get a specific payment from QuickBooks Online by its ID.",
+  inputSchema: z.object({
+    paymentId: z.string().describe("The ID of the payment to retrieve")
+  }),
+  execute: async ({ paymentId }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const payment = await getPaymentById(userId, userTokens.realmId, paymentId);
+      
+      if (!payment) {
+        return {
+          success: false,
+          error: "Payment not found"
+        };
+      }
+
+      return {
+        success: true,
+        payment: payment
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get payment'
+      };
+    }
+  }
+});
+
+export const getQboPurchasesTool = tool({
+  description: "Get purchases from QuickBooks Online. Use filters to get specific purchases.",
+  inputSchema: z.object({
+    maxResults: z.number().optional().describe("Maximum number of results (default: 20)"),
+    startPosition: z.number().optional().describe("Starting position for pagination (default: 1)"),
+    where: z.string().optional().describe("Filter criteria")
+  }),
+  execute: async ({ maxResults = 20, startPosition = 1, where }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const purchasesResponse = await getPurchases(userId, userTokens.realmId, { maxResults, startPosition, where });
+      
+      return {
+        success: true,
+        purchases: purchasesResponse.purchases || []
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get purchases'
+      };
+    }
+  }
+});
+
+export const getQboPurchaseByIdTool = tool({
+  description: "Get a specific purchase from QuickBooks Online by its ID.",
+  inputSchema: z.object({
+    purchaseId: z.string().describe("The ID of the purchase to retrieve")
+  }),
+  execute: async ({ purchaseId }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const purchase = await getPurchaseById(userId, userTokens.realmId, purchaseId);
+      
+      if (!purchase) {
+        return {
+          success: false,
+          error: "Purchase not found"
+        };
+      }
+
+      return {
+        success: true,
+        purchase: purchase
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get purchase'
+      };
+    }
+  }
+});
+
+export const getQboBillsTool = tool({
+  description: "Get bills from QuickBooks Online. Use filters to get specific bills.",
+  inputSchema: z.object({
+    maxResults: z.number().optional().describe("Maximum number of results (default: 20)"),
+    startPosition: z.number().optional().describe("Starting position for pagination (default: 1)"),
+    where: z.string().optional().describe("Filter criteria")
+  }),
+  execute: async ({ maxResults = 20, startPosition = 1, where }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const billsResponse = await getBills(userId, userTokens.realmId, { maxResults, startPosition, where });
+      
+      return {
+        success: true,
+        bills: billsResponse.bills || []
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get bills'
+      };
+    }
+  }
+});
+
+export const getQboBillByIdTool = tool({
+  description: "Get a specific bill from QuickBooks Online by its ID.",
+  inputSchema: z.object({
+    billId: z.string().describe("The ID of the bill to retrieve")
+  }),
+  execute: async ({ billId }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const bill = await getBillById(userId, userTokens.realmId, billId);
+      
+      if (!bill) {
+        return {
+          success: false,
+          error: "Bill not found"
+        };
+      }
+
+      return {
+        success: true,
+        bill: bill
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get bill'
+      };
+    }
+  }
+});
+
+export const getQboAccountsTool = tool({
+  description: "Get chart of accounts from QuickBooks Online including assets, liabilities, equity, revenue, and expense accounts.",
+  inputSchema: z.object({
+    maxResults: z.number().optional().describe("Maximum number of results (default: 50)"),
+    startPosition: z.number().optional().describe("Starting position for pagination (default: 1)"),
+    where: z.string().optional().describe("Filter criteria (e.g., 'Active = true')")
+  }),
+  execute: async ({ maxResults = 50, startPosition = 1, where }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const accountsResponse = await getQboAccounts(userId, userTokens.realmId, { maxResults, startPosition, where });
+      
+      return {
+        success: true,
+        accounts: accountsResponse.accounts || []
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get accounts'
+      };
+    }
+  }
+});
+
+export const getQboAccountByIdTool = tool({
+  description: "Get a specific account from QuickBooks Online by its ID.",
+  inputSchema: z.object({
+    accountId: z.string().describe("The ID of the account to retrieve")
+  }),
+  execute: async ({ accountId }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const account = await getAccountById(userId, userTokens.realmId, accountId);
+      
+      if (!account) {
+        return {
+          success: false,
+          error: "Account not found"
+        };
+      }
+
+      return {
+        success: true,
+        account: account
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get account'
+      };
+    }
+  }
+});
+
+export const getQboVendorsTool = tool({
+  description: "Get vendors from QuickBooks Online. Use filters to get specific vendors.",
+  inputSchema: z.object({
+    maxResults: z.number().optional().describe("Maximum number of results (default: 20)"),
+    startPosition: z.number().optional().describe("Starting position for pagination (default: 1)")
+  }),
+  execute: async ({ maxResults = 20, startPosition = 1 }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const vendorsResponse = await getVendors(userId, userTokens.realmId, { maxResults, startPosition });
+      
+      return {
+        success: true,
+        vendors: vendorsResponse.vendors || []
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get vendors'
+      };
+    }
+  }
+});
+
+export const getQboVendorByIdTool = tool({
+  description: "Get a specific vendor from QuickBooks Online by its ID.",
+  inputSchema: z.object({
+    vendorId: z.string().describe("The ID of the vendor to retrieve")
+  }),
+  execute: async ({ vendorId }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      // QBO doesn't have a direct get vendor by ID endpoint, so we'll query
+      const vendorsResponse = await getVendors(userId, userTokens.realmId, { maxResults: 1000 });
+      const vendor = vendorsResponse.vendors?.find((v: any) => v.Id === vendorId);
+      
+      if (!vendor) {
+        return {
+          success: false,
+          error: "Vendor not found"
+        };
+      }
+
+      return {
+        success: true,
+        vendor: vendor
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get vendor'
+      };
+    }
+  }
+});
+
+export const getQboCustomerByIdTool = tool({
+  description: "Get a specific customer from QuickBooks Online by its ID.",
+  inputSchema: z.object({
+    customerId: z.string().describe("The ID of the customer to retrieve")
+  }),
+  execute: async ({ customerId }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      // QBO doesn't have a direct get customer by ID endpoint, so we'll query
+      const customersResponse = await getCustomers(userId, userTokens.realmId, { maxResults: 1000 });
+      const customer = customersResponse.customers?.find((c: any) => c.Id === customerId);
+      
+      if (!customer) {
+        return {
+          success: false,
+          error: "Customer not found"
+        };
+      }
+
+      return {
+        success: true,
+        customer: customer
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get customer'
+      };
+    }
+  }
+});
+
+export const getQboEstimatesTool = tool({
+  description: "Get estimates from QuickBooks Online. Use filters to get specific estimates.",
+  inputSchema: z.object({
+    maxResults: z.number().optional().describe("Maximum number of results (default: 20)"),
+    startPosition: z.number().optional().describe("Starting position for pagination (default: 1)"),
+    where: z.string().optional().describe("Filter criteria")
+  }),
+  execute: async ({ maxResults = 20, startPosition = 1, where }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const estimatesResponse = await getEstimates(userId, userTokens.realmId, { maxResults, startPosition, where });
+      
+      return {
+        success: true,
+        estimates: estimatesResponse.estimates || []
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get estimates'
+      };
+    }
+  }
+});
+
+export const getQboProfitAndLossTool = tool({
+  description: "Get QuickBooks Online profit and loss report showing revenue, expenses, and net profit/loss over a specified period. Useful for financial analysis and reporting.",
+  inputSchema: z.object({
+    startDate: z.string().optional().describe("Start date for the report (YYYY-MM-DD format). If not provided, defaults to start of current fiscal year."),
+    endDate: z.string().optional().describe("End date for the report (YYYY-MM-DD format). If not provided, defaults to current date."),
+    summarizeColumnBy: z.string().optional().describe("How to summarize columns (e.g., 'Month', 'Quarter', 'Year')"),
+    columns: z.string().optional().describe("Columns to include in the report")
+  }),
+  execute: async ({ startDate, endDate, summarizeColumnBy, columns }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const reportResponse = await getQboProfitAndLossReport(userId, userTokens.realmId, {
+        startDate,
+        endDate,
+        summarizeColumnBy,
+        columns
+      });
+      
+      return {
+        success: true,
+        report: reportResponse
+      };
+    } catch (error) {
+      console.error('Error getting profit and loss report:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get profit and loss report'
+      };
+    }
+  }
+});
+
+export const getQboSalesTool = tool({
+  description: "Get QuickBooks Online sales report showing sales by customer over a specified period.",
+  inputSchema: z.object({
+    startDate: z.string().optional().describe("Start date for the report (YYYY-MM-DD format)"),
+    endDate: z.string().optional().describe("End date for the report (YYYY-MM-DD format)"),
+    summarizeColumnBy: z.string().optional().describe("How to summarize columns (e.g., 'Month', 'Quarter', 'Year')"),
+    columns: z.string().optional().describe("Columns to include in the report")
+  }),
+  execute: async ({ startDate, endDate, summarizeColumnBy, columns }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const reportResponse = await getSalesReport(userId, userTokens.realmId, {
+        startDate,
+        endDate,
+        summarizeColumnBy,
+        columns
+      });
+      
+      return {
+        success: true,
+        report: reportResponse
+      };
+    } catch (error) {
+      console.error('Error getting sales report:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get sales report'
+      };
+    }
+  }
+});
+
+export const getQboExpensesTool = tool({
+  description: "Get QuickBooks Online expenses report showing expenses over a specified period.",
+  inputSchema: z.object({
+    startDate: z.string().optional().describe("Start date for the report (YYYY-MM-DD format)"),
+    endDate: z.string().optional().describe("End date for the report (YYYY-MM-DD format)"),
+    summarizeColumnBy: z.string().optional().describe("How to summarize columns (e.g., 'Month', 'Quarter', 'Year')"),
+    columns: z.string().optional().describe("Columns to include in the report")
+  }),
+  execute: async ({ startDate, endDate, summarizeColumnBy, columns }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const reportResponse = await getExpensesReport(userId, userTokens.realmId, {
+        startDate,
+        endDate,
+        summarizeColumnBy,
+        columns
+      });
+      
+      return {
+        success: true,
+        report: reportResponse
+      };
+    } catch (error) {
+      console.error('Error getting expenses report:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get expenses report'
+      };
+    }
+  }
+});
+
+export const getQboItemSalesTool = tool({
+  description: "Get QuickBooks Online item sales report showing sales by item over a specified period.",
+  inputSchema: z.object({
+    startDate: z.string().optional().describe("Start date for the report (YYYY-MM-DD format)"),
+    endDate: z.string().optional().describe("End date for the report (YYYY-MM-DD format)"),
+    summarizeColumnBy: z.string().optional().describe("How to summarize columns (e.g., 'Month', 'Quarter', 'Year')"),
+    columns: z.string().optional().describe("Columns to include in the report")
+  }),
+  execute: async ({ startDate, endDate, summarizeColumnBy, columns }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const reportResponse = await getItemSalesReport(userId, userTokens.realmId, {
+        startDate,
+        endDate,
+        summarizeColumnBy,
+        columns
+      });
+      
+      return {
+        success: true,
+        report: reportResponse
+      };
+    } catch (error) {
+      console.error('Error getting item sales report:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get item sales report'
+      };
+    }
+  }
+});
+
+export const getQboCustomerSalesTool = tool({
+  description: "Get QuickBooks Online customer sales report showing sales by customer over a specified period.",
+  inputSchema: z.object({
+    startDate: z.string().optional().describe("Start date for the report (YYYY-MM-DD format)"),
+    endDate: z.string().optional().describe("End date for the report (YYYY-MM-DD format)"),
+    summarizeColumnBy: z.string().optional().describe("How to summarize columns (e.g., 'Month', 'Quarter', 'Year')"),
+    columns: z.string().optional().describe("Columns to include in the report")
+  }),
+  execute: async ({ startDate, endDate, summarizeColumnBy, columns }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const reportResponse = await getCustomerSalesReport(userId, userTokens.realmId, {
+        startDate,
+        endDate,
+        summarizeColumnBy,
+        columns
+      });
+      
+      return {
+        success: true,
+        report: reportResponse
+      };
+    } catch (error) {
+      console.error('Error getting customer sales report:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get customer sales report'
+      };
+    }
+  }
+});
+
+export const getQboVendorExpensesTool = tool({
+  description: "Get QuickBooks Online vendor expenses report showing expenses by vendor over a specified period.",
+  inputSchema: z.object({
+    startDate: z.string().optional().describe("Start date for the report (YYYY-MM-DD format)"),
+    endDate: z.string().optional().describe("End date for the report (YYYY-MM-DD format)"),
+    summarizeColumnBy: z.string().optional().describe("How to summarize columns (e.g., 'Month', 'Quarter', 'Year')"),
+    columns: z.string().optional().describe("Columns to include in the report")
+  }),
+  execute: async ({ startDate, endDate, summarizeColumnBy, columns }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const reportResponse = await getVendorExpensesReport(userId, userTokens.realmId, {
+        startDate,
+        endDate,
+        summarizeColumnBy,
+        columns
+      });
+      
+      return {
+        success: true,
+        report: reportResponse
+      };
+    } catch (error) {
+      console.error('Error getting vendor expenses report:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get vendor expenses report'
+      };
+    }
+  }
+});
+
+export const getQboTaxAgencyTool = tool({
+  description: "Get tax agencies from QuickBooks Online.",
+  inputSchema: z.object({
+    maxResults: z.number().optional().describe("Maximum number of results (default: 20)"),
+    startPosition: z.number().optional().describe("Starting position for pagination (default: 1)")
+  }),
+  execute: async ({ maxResults = 20, startPosition = 1 }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const taxAgencyResponse = await getTaxAgency(userId, userTokens.realmId, { maxResults, startPosition });
+      
+      return {
+        success: true,
+        taxAgencies: taxAgencyResponse.taxAgencies || []
+      };
+    } catch (error) {
+      console.error('Error getting tax agency:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get tax agency'
+      };
+    }
+  }
+});
+
+export const getQboTaxReportTool = tool({
+  description: "Get QuickBooks Online tax summary report showing tax information over a specified period.",
+  inputSchema: z.object({
+    startDate: z.string().optional().describe("Start date for the report (YYYY-MM-DD format)"),
+    endDate: z.string().optional().describe("End date for the report (YYYY-MM-DD format)"),
+    summarizeColumnBy: z.string().optional().describe("How to summarize columns (e.g., 'Month', 'Quarter', 'Year')"),
+    columns: z.string().optional().describe("Columns to include in the report")
+  }),
+  execute: async ({ startDate, endDate, summarizeColumnBy, columns }) => {
+    try {
+      const { getServerSession } = await import('next-auth');
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        return {
+          success: false,
+          error: "Authentication required. Please log in to use QBO tools."
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          error: "User not found. Please contact support."
+        };
+      }
+
+      const userId = user.id;
+      
+      const userTokens = await prisma.qboToken.findFirst({
+        where: { userId }
+      });
+      if (!userTokens) {
+        return {
+          success: false,
+          error: "No QBO connection found. Please connect to QuickBooks Online first in your profile settings."
+        };
+      }
+      
+      const reportResponse = await getTaxReport(userId, userTokens.realmId, {
+        startDate,
+        endDate,
+        summarizeColumnBy,
+        columns
+      });
+      
+      return {
+        success: true,
+        report: reportResponse
+      };
+    } catch (error) {
+      console.error('Error getting tax report:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get tax report'
       };
     }
   }
