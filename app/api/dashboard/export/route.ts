@@ -13,10 +13,18 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const format = searchParams.get("format") || "json";
     const timeframe = searchParams.get("timeframe") || "YEAR";
+    const fromDate = searchParams.get("fromDate");
+    const toDate = searchParams.get("toDate");
 
     // Fetch the dashboard data
     const statsUrl = new URL("/api/dashboard/stats", request.url);
     statsUrl.searchParams.set("timeframe", timeframe);
+    if (fromDate) {
+      statsUrl.searchParams.set("fromDate", fromDate);
+    }
+    if (toDate) {
+      statsUrl.searchParams.set("toDate", toDate);
+    }
 
     const response = await fetch(statsUrl, {
       headers: {
@@ -29,6 +37,12 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
+
+    // Generate filename based on timeframe and dates
+    let filename = `financial-report-${timeframe.toLowerCase()}`;
+    if (timeframe === "CUSTOM" && fromDate && toDate) {
+      filename = `financial-report-${fromDate}-to-${toDate}`;
+    }
 
     if (format === "csv") {
       // Generate CSV
@@ -43,7 +57,7 @@ export async function GET(request: NextRequest) {
       return new NextResponse(csv, {
         headers: {
           "Content-Type": "text/csv",
-          "Content-Disposition": `attachment; filename="financial-report-${timeframe.toLowerCase()}.csv"`,
+          "Content-Disposition": `attachment; filename="${filename}.csv"`,
         },
       });
     } else {
@@ -53,7 +67,7 @@ export async function GET(request: NextRequest) {
       return new NextResponse(jsonData, {
         headers: {
           "Content-Type": "application/json",
-          "Content-Disposition": `attachment; filename="financial-report-${timeframe.toLowerCase()}.json"`,
+          "Content-Disposition": `attachment; filename="${filename}.json"`,
         },
       });
     }

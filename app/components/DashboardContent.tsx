@@ -31,22 +31,38 @@ export default function DashboardContent({ session: initialSession }: DashboardC
   const [loading, setLoading] = useState(true);
   const [loadingMonthly, setLoadingMonthly] = useState(true);
   const [loadingPrevious, setLoadingPrevious] = useState(true);
-  const [timeframe, setTimeframe] = useState<'YEAR' | 'MONTH'>('YEAR');
+  const [timeframe, setTimeframe] = useState<'YEAR' | 'MONTH' | 'CUSTOM'>('YEAR');
+  const [customFromDate, setCustomFromDate] = useState<string>('');
+  const [customToDate, setCustomToDate] = useState<string>('');
   const [sortField, setSortField] = useState<'name' | 'value' | 'percentage'>('value');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
-    fetchDashboardData();
+    // Only auto-fetch for MTD and YTD, not for CUSTOM
+    if (timeframe !== 'CUSTOM') {
+      fetchDashboardData();
+    }
   }, [timeframe]);
 
   const fetchDashboardData = async () => {
     try {
+      // Skip fetching if CUSTOM is selected but dates are not set
+      if (timeframe === 'CUSTOM' && (!customFromDate || !customToDate)) {
+        return;
+      }
+
       setLoading(true);
       setLoadingMonthly(true);
       setLoadingPrevious(true);
       
+      // Build query string with optional date parameters
+      let statsUrl = `/api/dashboard/stats?timeframe=${timeframe}`;
+      if (timeframe === 'CUSTOM' && customFromDate && customToDate) {
+        statsUrl += `&fromDate=${customFromDate}&toDate=${customToDate}`;
+      }
+      
       // Fetch main stats (fast - KPIs and expense breakdown)
-      const statsResponse = await fetch(`/api/dashboard/stats?timeframe=${timeframe}`);
+      const statsResponse = await fetch(statsUrl);
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
         setDashboardData((prev: any) => ({ 
@@ -59,13 +75,22 @@ export default function DashboardContent({ session: initialSession }: DashboardC
       setLoading(false);
 
       // Fetch monthly trend data (slower - 12 API calls with rate limiting)
-      const currentYear = new Date().getFullYear();
-      const monthlyResponse = await fetch(`/api/dashboard/monthly?year=${currentYear}`);
-      if (monthlyResponse.ok) {
-        const monthlyData = await monthlyResponse.json();
+      // Only fetch for YEAR timeframe, skip for CUSTOM
+      if (timeframe === 'YEAR') {
+        const currentYear = new Date().getFullYear();
+        const monthlyResponse = await fetch(`/api/dashboard/monthly?year=${currentYear}`);
+        if (monthlyResponse.ok) {
+          const monthlyData = await monthlyResponse.json();
+          setDashboardData((prev: any) => ({ 
+            ...prev, 
+            trendData: monthlyData.trendData || [],
+          }));
+        }
+      } else {
+        // For CUSTOM and MONTH, set empty trend data
         setDashboardData((prev: any) => ({ 
           ...prev, 
-          trendData: monthlyData.trendData || [],
+          trendData: [],
         }));
       }
       setLoadingMonthly(false);
@@ -75,9 +100,8 @@ export default function DashboardContent({ session: initialSession }: DashboardC
         const statsData = await statsResponse.json();
         const timeframeData = statsData.timeframe;
         if (timeframeData?.from && timeframeData?.to) {
-          const previousResponse = await fetch(
-            `/api/dashboard/previous?timeframe=${timeframe}&fromDate=${timeframeData.from}&toDate=${timeframeData.to}`
-          );
+          let previousUrl = `/api/dashboard/previous?timeframe=${timeframe}&fromDate=${timeframeData.from}&toDate=${timeframeData.to}`;
+          const previousResponse = await fetch(previousUrl);
           if (previousResponse.ok) {
             const previousData = await previousResponse.json();
             setDashboardData((prev: any) => ({ 
@@ -163,9 +187,26 @@ export default function DashboardContent({ session: initialSession }: DashboardC
     return { change, hasData: true };
   };
 
+  const handleApplyCustomDateRange = () => {
+    if (customFromDate && customToDate) {
+      if (new Date(customFromDate) > new Date(customToDate)) {
+        alert('From date must be before To date');
+        return;
+      }
+      fetchDashboardData();
+    } else {
+      alert('Please select both From and To dates');
+    }
+  };
+
   const handleExport = async (format: 'csv' | 'json') => {
     try {
-      const response = await fetch(`/api/dashboard/export?format=${format}&timeframe=${timeframe}`);
+      let exportUrl = `/api/dashboard/export?format=${format}&timeframe=${timeframe}`;
+      if (timeframe === 'CUSTOM' && customFromDate && customToDate) {
+        exportUrl += `&fromDate=${customFromDate}&toDate=${customToDate}`;
+      }
+      
+      const response = await fetch(exportUrl);
       
       if (!response.ok) {
         throw new Error('Export failed');
@@ -175,7 +216,10 @@ export default function DashboardContent({ session: initialSession }: DashboardC
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `financial-report-${timeframe.toLowerCase()}.${format}`;
+      const dateSuffix = timeframe === 'CUSTOM' && customFromDate && customToDate 
+        ? `${customFromDate}-to-${customToDate}` 
+        : timeframe.toLowerCase();
+      a.download = `financial-report-${dateSuffix}.${format}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -272,51 +316,110 @@ export default function DashboardContent({ session: initialSession }: DashboardC
               </CardBody>
             </Card>
           </div>
-        ) : loading ? (
-          <div className="flex items-center justify-center min-h-[500px]">
-            <div className="flex flex-col items-center space-y-4">
-              <Spinner size="lg" color="default" className="text-[#1D1D1D]" />
-              <p className="text-sm text-[#1D1D1D]/70">Loading your dashboard...</p>
-            </div>
-          </div>
         ) : (
           <div className="space-y-6 animate-slide-in">
-            {/* Timeframe Toggle */}
+            {/* Timeframe Toggle - Always visible */}
             <div className="flex items-center justify-between bg-[#1D1D1D] rounded-full px-6 py-4 shadow-2xl">
               <div className="flex items-center space-x-3">
                 <h2 className="text-lg font-semibold text-white">
                   {dashboardData?.organisation?.name || 'Financial'} Overview
                 </h2>
-                {dashboardData?.timeframe && (
+                {dashboardData?.timeframe && timeframe !== 'CUSTOM' && (
                   <span className="text-sm text-gray-400 bg-white/10 px-3 py-1 rounded-full">
                     {dashboardData.timeframe.from} to {dashboardData.timeframe.to}
                   </span>
                 )}
               </div>
               
-              <div className="flex items-center space-x-2 bg-white/10 rounded-full p-1">
-                <button
-                  onClick={() => setTimeframe('MONTH')}
-                  className={`px-5 py-2 text-sm rounded-full font-medium transition-all ${
-                    timeframe === 'MONTH'
-                      ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-md'
-                      : 'text-gray-300 hover:text-white'
-                  }`}
-                >
-                  MTD
-                </button>
-                <button
-                  onClick={() => setTimeframe('YEAR')}
-                  className={`px-5 py-2 text-sm rounded-full font-medium transition-all ${
-                    timeframe === 'YEAR'
-                      ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-md'
-                      : 'text-gray-300 hover:text-white'
-                  }`}
-                >
-                  YTD
-                </button>
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2 bg-white/10 rounded-full p-1">
+                  <button
+                    onClick={() => {
+                      setTimeframe('MONTH');
+                      if (timeframe === 'CUSTOM') {
+                        setCustomFromDate('');
+                        setCustomToDate('');
+                      }
+                    }}
+                    className={`px-5 py-2 text-sm rounded-full font-medium transition-all ${
+                      timeframe === 'MONTH'
+                        ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-md'
+                        : 'text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    MTD
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTimeframe('YEAR');
+                      if (timeframe === 'CUSTOM') {
+                        setCustomFromDate('');
+                        setCustomToDate('');
+                      }
+                    }}
+                    className={`px-5 py-2 text-sm rounded-full font-medium transition-all ${
+                      timeframe === 'YEAR'
+                        ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-md'
+                        : 'text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    YTD
+                  </button>
+                  <button
+                    onClick={() => setTimeframe('CUSTOM')}
+                    className={`px-5 py-2 text-sm rounded-full font-medium transition-all ${
+                      timeframe === 'CUSTOM'
+                        ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-md'
+                        : 'text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    Custom
+                  </button>
+                </div>
+                
+                {timeframe === 'CUSTOM' && (
+                  <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 bg-white/10 rounded-full px-4 py-2">
+                      <input
+                        type="date"
+                        value={customFromDate}
+                        onChange={(e) => setCustomFromDate(e.target.value)}
+                        max={customToDate || undefined}
+                        className="bg-transparent text-white text-sm border-none outline-none focus:ring-2 focus:ring-[#E8E7BB] rounded px-2 py-1"
+                        style={{ colorScheme: 'dark' }}
+                      />
+                      <span className="text-gray-400 text-sm font-medium">to</span>
+                      <input
+                        type="date"
+                        value={customToDate}
+                        onChange={(e) => setCustomToDate(e.target.value)}
+                        min={customFromDate || undefined}
+                        className="bg-transparent text-white text-sm border-none outline-none focus:ring-2 focus:ring-[#E8E7BB] rounded px-2 py-1"
+                        style={{ colorScheme: 'dark' }}
+                      />
+                    </div>
+                    <button
+                      onClick={handleApplyCustomDateRange}
+                      disabled={!customFromDate || !customToDate || loading}
+                      className="px-4 py-2 text-sm rounded-full font-medium transition-all bg-[#E8E7BB] text-[#1D1D1D] hover:bg-[#d4d3a7] shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#E8E7BB]"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Loading State for Content */}
+            {loading ? (
+              <div className="flex items-center justify-center min-h-[400px]">
+                <div className="flex flex-col items-center space-y-4">
+                  <Spinner size="lg" color="default" className="text-[#1D1D1D]" />
+                  <p className="text-sm text-[#1D1D1D]/70">Loading your dashboard...</p>
+                </div>
+              </div>
+            ) : (
+              <>
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -388,10 +491,14 @@ export default function DashboardContent({ session: initialSession }: DashboardC
             </div>
 
             {/* Revenue vs Expenses Trend Chart */}
-            <RevenueExpensesChart data={dashboardData?.trendData || []} loading={loadingMonthly} />
+            {timeframe !== 'CUSTOM' && (
+              <RevenueExpensesChart data={dashboardData?.trendData || []} loading={loadingMonthly} />
+            )}
 
             {/* Net Profit Trend Chart */}
-            <NetProfitTrendChart data={dashboardData?.trendData || []} loading={loadingMonthly} />
+            {timeframe !== 'CUSTOM' && (
+              <NetProfitTrendChart data={dashboardData?.trendData || []} loading={loadingMonthly} />
+            )}
 
             {/* Expense Breakdown Chart */}
             <ExpenseBreakdownChart data={dashboardData?.expenseBreakdown || []} loading={loading} />
@@ -514,6 +621,8 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                 </table>
               </div>
             </div>
+              </>
+            )}
           </div>
         )}
       </div>
