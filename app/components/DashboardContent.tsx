@@ -18,6 +18,7 @@ import {
 import RevenueExpensesChart from "./RevenueExpensesChart";
 import ExpenseBreakdownChart from "./ExpenseBreakdownChart";
 import NetProfitTrendChart from "./NetProfitTrendChart";
+import ExpenseDetailModal from "./ExpenseDetailModal";
 
 interface DashboardContentProps {
   session: Session;
@@ -36,6 +37,8 @@ export default function DashboardContent({ session: initialSession }: DashboardC
   const [customToDate, setCustomToDate] = useState<string>('');
   const [sortField, setSortField] = useState<'name' | 'value' | 'percentage'>('value');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [selectedExpense, setSelectedExpense] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     // Only auto-fetch for MTD and YTD, not for CUSTOM
@@ -240,6 +243,16 @@ export default function DashboardContent({ session: initialSession }: DashboardC
 
   const formatPercentage = (value: number) => {
     return `${value.toFixed(1)}%`;
+  };
+
+  const handleExpenseClick = (expenseName: string) => {
+    setSelectedExpense(expenseName);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedExpense(null);
   };
 
   const firstName = currentSession.user.name?.split(" ")[0] || "User";
@@ -501,7 +514,11 @@ export default function DashboardContent({ session: initialSession }: DashboardC
             )}
 
             {/* Expense Breakdown Chart */}
-            <ExpenseBreakdownChart data={dashboardData?.expenseBreakdown || []} loading={loading} />
+            <ExpenseBreakdownChart 
+              data={dashboardData?.expenseBreakdown || []} 
+              loading={loading}
+              onExpenseClick={handleExpenseClick}
+            />
 
             {/* Category Highlights Table */}
             <div className="bg-[#1D1D1D] rounded-3xl p-8 shadow-2xl">
@@ -568,7 +585,11 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                   </thead>
                   <tbody>
                     {getSortedExpenses().map((expense: any, index: number) => (
-                      <tr key={index} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <tr 
+                        key={index} 
+                        className="border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer"
+                        onClick={() => handleExpenseClick(expense.name)}
+                      >
                         <td className="py-4 px-4">
                           <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E8E7BB] to-[#d4d3a7] flex items-center justify-center shadow-md">
@@ -626,6 +647,17 @@ export default function DashboardContent({ session: initialSession }: DashboardC
           </div>
         )}
       </div>
+
+      {/* Expense Detail Modal */}
+      {selectedExpense && dashboardData?.timeframe && (
+        <ExpenseDetailModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          expenseName={selectedExpense}
+          fromDate={dashboardData.timeframe.from}
+          toDate={dashboardData.timeframe.to}
+        />
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ interface ExpenseData {
 interface ExpenseBreakdownChartProps {
   data: ExpenseData[]
   loading?: boolean
+  onExpenseClick?: (expenseName: string) => void
 }
 
 // Color palette for the pie chart segments - NO Beige
@@ -27,7 +28,7 @@ const COLORS = [
   '#84cc16', // lime
 ]
 
-export default function ExpenseBreakdownChart({ data, loading = false }: ExpenseBreakdownChartProps) {
+export default function ExpenseBreakdownChart({ data, loading = false, onExpenseClick }: ExpenseBreakdownChartProps) {
   if (loading) {
     return (
       <div className="bg-[#1D1D1D] rounded-3xl p-8 shadow-2xl">
@@ -71,26 +72,44 @@ export default function ExpenseBreakdownChart({ data, loading = false }: Expense
           <p className="text-sm text-gray-600">
             Percentage: {data.payload.percentage.toFixed(1)}%
           </p>
+          {onExpenseClick && (
+            <p className="text-xs text-blue-600 mt-2 cursor-pointer hover:underline">
+              Click to view details
+            </p>
+          )}
         </div>
       )
     }
     return null
   }
 
+  const handleCellClick = (entry: ExpenseData) => {
+    if (onExpenseClick) {
+      onExpenseClick(entry.name)
+    }
+  }
+
   const CustomLegend = ({ payload }: any) => {
     return (
       <div className="flex flex-wrap gap-2 mt-4">
-        {payload.map((entry: any, index: number) => (
-          <div key={index} className="flex items-center space-x-2 text-xs">
+        {payload.map((entry: any, index: number) => {
+          const expenseEntry = data.find(d => d.name === entry.value)
+          return (
             <div 
-              className="w-3 h-3 rounded-full" 
-              style={{ backgroundColor: entry.color }}
-            />
-            <span className="text-gray-700">
-              {entry.value}
-            </span>
-          </div>
-        ))}
+              key={index} 
+              className={`flex items-center space-x-2 text-xs ${onExpenseClick ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+              onClick={onExpenseClick && expenseEntry ? () => handleCellClick(expenseEntry) : undefined}
+            >
+              <div 
+                className="w-3 h-3 rounded-full" 
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-gray-700">
+                {entry.value}
+              </span>
+            </div>
+          )
+        })}
       </div>
     )
   }
@@ -118,9 +137,15 @@ export default function ExpenseBreakdownChart({ data, loading = false }: Expense
               outerRadius={110}
               paddingAngle={3}
               dataKey="value"
+              onClick={onExpenseClick ? (data, index) => handleCellClick(data) : undefined}
+              style={onExpenseClick ? { cursor: 'pointer' } : undefined}
             >
               {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={COLORS[index % COLORS.length]}
+                  style={onExpenseClick ? { cursor: 'pointer' } : undefined}
+                />
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip />} />
