@@ -113,6 +113,38 @@ function extractExpenseDetails(
     return details;
   }
 
+  // Build column index mapping from Columns metadata
+  const columnMap: Record<string, number> = {};
+  if (report.Columns && report.Columns.Column) {
+    const columns = Array.isArray(report.Columns.Column)
+      ? report.Columns.Column
+      : [report.Columns.Column];
+    
+    columns.forEach((col: any, index: number) => {
+      if (col.MetaData) {
+        const metaDataArray = Array.isArray(col.MetaData)
+          ? col.MetaData
+          : [col.MetaData];
+        
+        const colKeyMeta = metaDataArray.find(
+          (meta: any) => meta.Name === "ColKey"
+        );
+        if (colKeyMeta && colKeyMeta.Value) {
+          columnMap[colKeyMeta.Value] = index;
+        }
+      }
+    });
+  }
+
+  // Helper function to get column value by ColKey
+  const getColumnValue = (colData: any[], colKey: string): string => {
+    const index = columnMap[colKey];
+    if (index !== undefined && colData[index] !== undefined) {
+      return colData[index]?.value || "";
+    }
+    return "";
+  };
+
   const rows = Array.isArray(report.Rows.Row)
     ? report.Rows.Row
     : [report.Rows.Row];
@@ -139,15 +171,17 @@ function extractExpenseDetails(
             for (const dataRow of dataRows) {
               if (dataRow.type === "Data" && dataRow.ColData) {
                 const colData = dataRow.ColData;
-                const date = colData[0]?.value || "";
-                const transactionType = colData[1]?.value || "";
-                const docNumber = colData[2]?.value || "";
-                const name = colData[3]?.value || "";
-                const klass = colData[4]?.value || "";
-                const memo = colData[5]?.value || "";
-                const split = colData[6]?.value || "";
-                const amountStr = colData[7]?.value || "0";
-                const balanceStr = colData[8]?.value || "0";
+                
+                // Extract values using column mapping
+                const date = getColumnValue(colData, "tx_date");
+                const transactionType = getColumnValue(colData, "txn_type");
+                const docNumber = getColumnValue(colData, "doc_num");
+                const name = getColumnValue(colData, "name");
+                const klass = getColumnValue(colData, "klass_name");
+                const memo = getColumnValue(colData, "memo");
+                const split = getColumnValue(colData, "split_acc");
+                const amountStr = getColumnValue(colData, "subt_nat_amount_nt") || "0";
+                const balanceStr = getColumnValue(colData, "rbal_nat_amount_nt") || "0";
 
                 const amount =
                   typeof amountStr === "string"
@@ -158,7 +192,8 @@ function extractExpenseDetails(
                     ? parseFloat(balanceStr.replace(/,/g, ""))
                     : balanceStr;
 
-                if (!isNaN(amount)) {
+                // Only add if we have an amount (or at least some data)
+                if (!isNaN(amount) || date || transactionType || name) {
                   details.push({
                     date,
                     transactionType,
@@ -167,8 +202,8 @@ function extractExpenseDetails(
                     class: klass,
                     memo,
                     split,
-                    amount: Math.abs(amount),
-                    balance: Math.abs(balance),
+                    amount: !isNaN(amount) ? Math.abs(amount) : 0,
+                    balance: !isNaN(balance) ? Math.abs(balance) : 0,
                   });
                 }
               }
