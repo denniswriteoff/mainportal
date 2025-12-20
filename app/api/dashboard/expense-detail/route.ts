@@ -104,11 +104,11 @@ export async function GET(request: NextRequest) {
         acc.code?.toLowerCase().trim() === normalizedExpenseName
     );
 
-    if (!expenseAccount) {
+    if (!expenseAccount || !expenseAccount.accountID) {
       return NextResponse.json({
         expenseName,
         details: [],
-        error: "Expense account not found",
+        error: "Expense account not found or missing account ID",
       });
     }
 
