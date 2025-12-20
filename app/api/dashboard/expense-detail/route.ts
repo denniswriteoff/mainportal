@@ -24,15 +24,16 @@ export async function GET(request: NextRequest) {
 
     const accountingService = session.user.accountingService;
 
-    if (!accountingService || accountingService !== "QBO") {
+    if (!accountingService || (accountingService !== "QBO" && accountingService !== "XERO")) {
       return NextResponse.json(
-        { error: "Only QuickBooks Online is supported for expense details" },
+        { error: "Only QuickBooks Online and Xero are supported for expense details" },
         { status: 400 }
       );
     }
 
-    // Import QBO helper functions
-    const qboLib = await import("@/lib/qbo");
+    if (accountingService === "QBO") {
+      // Import QBO helper functions
+      const qboLib = await import("@/lib/qbo");
 
     // Get user's QBO token
     const token = await qboLib.getValidToken(session.user.id);
@@ -67,13 +68,113 @@ export async function GET(request: NextRequest) {
       profitLossDetailRes.json || JSON.parse(profitLossDetailRes.body || "{}");
 
     // Extract expense details for the specific expense category
-    const expenseDetails = extractExpenseDetails(profitLossDetail, expenseName);
+    const expenseDetails = extractQboExpenseDetails(profitLossDetail, expenseName);
 
-    return NextResponse.json({
-      expenseName,
-      details: expenseDetails,
-      report: profitLossDetail,
+      return NextResponse.json({
+        expenseName,
+        details: expenseDetails,
+        report: profitLossDetail,
+      });
+    } else if (accountingService === "XERO") {
+    // Import Xero helper functions
+    const { getInvoices, getAccounts } = await import("@/lib/xero-api");
+    const { prisma } = await import("@/lib/db");
+
+    // Get user's Xero tokens
+    const userTokens = await prisma.xeroToken.findFirst({
+      where: { userId: session.user.id },
     });
+
+    if (!userTokens || !userTokens.tenantId) {
+      return NextResponse.json(
+        { error: "No Xero connection found" },
+        { status: 401 }
+      );
+    }
+
+    // Get all accounts to find the expense account
+    const accountsResponse = await getAccounts(session.user.id, userTokens.tenantId);
+    const accounts = accountsResponse?.accounts || [];
+    
+    // Find the expense account that matches the expense name (by name or code)
+    const normalizedExpenseName = expenseName.toLowerCase().trim();
+    const expenseAccount = accounts.find(
+      (acc: any) => 
+        acc.name?.toLowerCase().trim() === normalizedExpenseName ||
+        acc.code?.toLowerCase().trim() === normalizedExpenseName
+    );
+
+    if (!expenseAccount) {
+      return NextResponse.json({
+        expenseName,
+        details: [],
+        error: "Expense account not found",
+      });
+    }
+
+    // Get invoices (bills/purchases) - In Xero, purchase invoices (ACCPAY) are expenses
+    // Fetch all pages of invoices and filter by date range in code
+    let allInvoices: any[] = [];
+    let page = 1;
+    let hasMore = true;
+    const fromDateObj = new Date(fromDate);
+    const toDateObj = new Date(toDate);
+    toDateObj.setHours(23, 59, 59, 999); // Include the entire end date
+
+    // Fetch all pages of invoices
+    while (hasMore) {
+      try {
+        const invoicesResponse = await getInvoices(session.user.id, userTokens.tenantId, {
+          page,
+          statuses: ["AUTHORISED", "PAID", "VOIDED"],
+        });
+
+        if (invoicesResponse?.invoices) {
+          const invoices = Array.isArray(invoicesResponse.invoices)
+            ? invoicesResponse.invoices
+            : [invoicesResponse.invoices];
+          
+          // Filter for purchase invoices (ACCPAY) within date range
+          const expenseInvoices = invoices.filter((inv: any) => {
+            if (inv.type !== "ACCPAY") return false; // Only purchase invoices
+            
+            // Filter by date range
+            if (inv.date) {
+              const invoiceDate = new Date(inv.date);
+              return invoiceDate >= fromDateObj && invoiceDate <= toDateObj;
+            }
+            return false;
+          });
+
+          allInvoices.push(...expenseInvoices);
+
+          // Check if there are more pages (Xero returns 100 items per page by default, but we use 20)
+          hasMore = invoices.length === 20;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      } catch (error) {
+        console.error("Error fetching invoices page:", error);
+        hasMore = false;
+      }
+    }
+
+    // Extract expense details from invoices
+    const expenseDetails = extractXeroExpenseDetails(
+      allInvoices, 
+      expenseAccount.accountID, 
+      expenseAccount.code || "",
+      expenseName, 
+      fromDate, 
+      toDate
+    );
+
+      return NextResponse.json({
+        expenseName,
+        details: expenseDetails,
+      });
+    }
   } catch (error) {
     console.error("Expense detail error:", error);
     return NextResponse.json(
@@ -83,7 +184,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function extractExpenseDetails(
+function extractQboExpenseDetails(
   report: any,
   expenseName: string
 ): Array<{
@@ -229,5 +330,99 @@ function extractExpenseDetails(
   }
 
   findExpenseCategory(rows);
+  return details;
+}
+
+function extractXeroExpenseDetails(
+  invoices: any[],
+  expenseAccountId: string,
+  expenseAccountCode: string,
+  expenseName: string,
+  fromDate: string,
+  toDate: string
+): Array<{
+  date: string;
+  transactionType: string;
+  docNumber: string;
+  name: string;
+  class: string;
+  memo: string;
+  split: string;
+  amount: number;
+  balance: number;
+  lineItems?: any[];
+  invoiceId?: string;
+}> {
+  const details: Array<{
+    date: string;
+    transactionType: string;
+    docNumber: string;
+    name: string;
+    class: string;
+    memo: string;
+    split: string;
+    amount: number;
+    balance: number;
+    lineItems?: any[];
+    invoiceId?: string;
+  }> = [];
+
+  for (const invoice of invoices) {
+    if (!invoice.lineItems || !Array.isArray(invoice.lineItems)) {
+      continue;
+    }
+
+    // Filter line items that match the expense account (by accountID or accountCode)
+    const expenseLineItems = invoice.lineItems.filter(
+      (lineItem: any) => 
+        (lineItem.accountID && String(lineItem.accountID) === String(expenseAccountId)) ||
+        (lineItem.accountCode && lineItem.accountCode === expenseAccountCode)
+    );
+
+    if (expenseLineItems.length === 0) {
+      continue;
+    }
+
+    // Use subTotal from invoice instead of calculating from line items
+    const invoiceDate = invoice.date ? new Date(invoice.date).toISOString().split("T")[0] : "";
+    const invoiceNumber = invoice.invoiceNumber || "";
+    const contactName = invoice.contact?.name || "";
+    const amount = Math.abs(invoice.subTotal || 0);
+
+    // Calculate running balance (cumulative sum)
+    const previousBalance = details.length > 0 
+      ? details[details.length - 1].balance 
+      : 0;
+    const balance = previousBalance + amount;
+
+    details.push({
+      date: invoiceDate,
+      transactionType: "Bill", // Purchase invoices are bills in Xero
+      docNumber: invoiceNumber,
+      name: contactName,
+      class: "", // Will be empty for now, can aggregate from line items if needed
+      memo: invoice.reference || "",
+      split: expenseAccountCode || "",
+      amount: amount,
+      balance: balance,
+      lineItems: invoice.lineItems, // Include all line items for the modal
+      invoiceId: invoice.invoiceID,
+    });
+  }
+
+  // Sort by date
+  details.sort((a, b) => {
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
+    return dateA - dateB;
+  });
+
+  // Recalculate balances after sorting
+  let runningBalance = 0;
+  for (const detail of details) {
+    runningBalance += detail.amount;
+    detail.balance = runningBalance;
+  }
+
   return details;
 }

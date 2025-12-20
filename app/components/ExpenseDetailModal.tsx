@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { X, Loader2 } from 'lucide-react'
+import LineItemsModal from './LineItemsModal'
 
 interface ExpenseDetail {
   date: string
@@ -13,6 +14,8 @@ interface ExpenseDetail {
   split: string
   amount: number
   balance: number
+  lineItems?: any[]
+  invoiceId?: string
 }
 
 interface ExpenseDetailModalProps {
@@ -35,6 +38,13 @@ export default function ExpenseDetailModal({
   const [error, setError] = useState<string | null>(null)
   const lastFetchRef = useRef<string>('')
   const isFetchingRef = useRef<boolean>(false)
+  const [selectedLineItems, setSelectedLineItems] = useState<{
+    lineItems: any[]
+    invoiceNumber?: string
+    contactName?: string
+    date?: string
+  } | null>(null)
+  const [isLineItemsModalOpen, setIsLineItemsModalOpen] = useState(false)
 
   useEffect(() => {
     if (isOpen && expenseName && fromDate && toDate) {
@@ -192,7 +202,22 @@ export default function ExpenseDetailModal({
                   {details.map((detail, index) => (
                     <tr
                       key={index}
-                      className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                      className={`border-b border-white/5 transition-colors ${
+                        detail.lineItems && detail.lineItems.length > 0
+                          ? 'hover:bg-white/10 cursor-pointer'
+                          : 'hover:bg-white/5'
+                      }`}
+                      onClick={() => {
+                        if (detail.lineItems && detail.lineItems.length > 0) {
+                          setSelectedLineItems({
+                            lineItems: detail.lineItems,
+                            invoiceNumber: detail.docNumber,
+                            contactName: detail.name,
+                            date: detail.date,
+                          })
+                          setIsLineItemsModalOpen(true)
+                        }
+                      }}
                     >
                       <td className="py-3 px-4 text-sm text-white">
                         {formatDate(detail.date)}
@@ -252,6 +277,22 @@ export default function ExpenseDetailModal({
           </button>
         </div>
       </div>
+
+      {/* Line Items Modal */}
+      {selectedLineItems && (
+        <LineItemsModal
+          isOpen={isLineItemsModalOpen}
+          onClose={() => {
+            setIsLineItemsModalOpen(false)
+            setSelectedLineItems(null)
+          }}
+          lineItems={selectedLineItems.lineItems}
+          invoiceNumber={selectedLineItems.invoiceNumber}
+          contactName={selectedLineItems.contactName}
+          date={selectedLineItems.date}
+        />
+      )}
     </div>
   )
 }
+
