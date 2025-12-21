@@ -50,6 +50,7 @@ export const authOptions: NextAuthOptions = {
           image: user.image,
           isAdmin: user.isAdmin,
           accountingService: user.accountingService,
+          enableAiFinancialInsights: user.enableAiFinancialInsights,
         };
       },
     }),
@@ -60,16 +61,18 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.isAdmin = user.isAdmin;
         token.accountingService = user.accountingService;
+        token.enableAiFinancialInsights = user.enableAiFinancialInsights;
       }
       
-      // Refresh accountingService from database on update trigger
+      // Refresh user data from database on update trigger
       if (trigger === "update" && token.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { accountingService: true },
+          select: { accountingService: true, enableAiFinancialInsights: true },
         });
         if (dbUser) {
           token.accountingService = dbUser.accountingService;
+          token.enableAiFinancialInsights = dbUser.enableAiFinancialInsights;
         }
       }
       
@@ -80,6 +83,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
         session.user.isAdmin = token.isAdmin as boolean;
         session.user.accountingService = token.accountingService as string | null;
+        session.user.enableAiFinancialInsights = token.enableAiFinancialInsights as boolean;
       }
       return session;
     },

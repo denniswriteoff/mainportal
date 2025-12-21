@@ -1,7 +1,7 @@
 "use client";
 
 import { Session } from "next-auth";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Card, CardBody, Button, Spinner } from "@nextui-org/react";
 import { 
@@ -19,6 +19,8 @@ import RevenueExpensesChart from "./RevenueExpensesChart";
 import ExpenseBreakdownChart from "./ExpenseBreakdownChart";
 import NetProfitTrendChart from "./NetProfitTrendChart";
 import ExpenseDetailModal from "./ExpenseDetailModal";
+import FinancialInsightPopup from "./FinancialInsightPopup";
+import AnnouncementPopup from "./AnnouncementPopup";
 
 interface DashboardContentProps {
   session: Session;
@@ -39,21 +41,36 @@ export default function DashboardContent({ session: initialSession }: DashboardC
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedExpense, setSelectedExpense] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
+  const [insights, setInsights] = useState<string | null>(null);
+  const [loadingInsights, setLoadingInsights] = useState(true);
+  const [showInsightsPopup, setShowInsightsPopup] = useState(false);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [currentAnnouncementIndex, setCurrentAnnouncementIndex] = useState(0);
+  
+  // Check sessionStorage after mount to avoid hydration mismatch
   useEffect(() => {
-    // Only auto-fetch for MTD and YTD, not for CUSTOM
-    if (timeframe !== 'CUSTOM') {
-      fetchDashboardData();
-    }
-  }, [timeframe]);
-
-  const fetchDashboardData = async () => {
-    try {
-      // Skip fetching if CUSTOM is selected but dates are not set
-      if (timeframe === 'CUSTOM' && (!customFromDate || !customToDate)) {
-        return;
+    if (typeof window !== 'undefined') {
+      const wasClosed = sessionStorage.getItem('financial-insights-popup-closed') === 'true';
+      if (wasClosed) {
+        setShowInsightsPopup(false);
       }
+    }
+  }, []);
+  const isFetchingRef = useRef(false);
 
+  const fetchDashboardData = useCallback(async () => {
+    // Prevent duplicate calls
+    // if (isFetchingRef.current) {
+    //   return;
+    // }
+    
+    // Skip fetching if CUSTOM is selected but dates are not set
+    if (timeframe === 'CUSTOM' && (!customFromDate || !customToDate)) {
+      return;
+    }
+
+    isFetchingRef.current = true;
+    try {
       setLoading(true);
       setLoadingMonthly(true);
       setLoadingPrevious(true);
@@ -66,8 +83,9 @@ export default function DashboardContent({ session: initialSession }: DashboardC
       
       // Fetch main stats (fast - KPIs and expense breakdown)
       const statsResponse = await fetch(statsUrl);
+      let statsData: any = null;
       if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
+        statsData = await statsResponse.json();
         setDashboardData((prev: any) => ({ 
           ...prev, 
           ...statsData,
@@ -99,8 +117,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
       setLoadingMonthly(false);
 
       // Fetch previous period data (slow - additional API call)
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
+      if (statsResponse.ok && statsData) {
         const timeframeData = statsData.timeframe;
         if (timeframeData?.from && timeframeData?.to) {
           let previousUrl = `/api/dashboard/previous?timeframe=${timeframe}&fromDate=${timeframeData.from}&toDate=${timeframeData.to}`;
@@ -120,6 +137,105 @@ export default function DashboardContent({ session: initialSession }: DashboardC
       setLoading(false);
       setLoadingMonthly(false);
       setLoadingPrevious(false);
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, [timeframe, customFromDate, customToDate]);
+
+  useEffect(() => {
+    // Only auto-fetch for MTD and YTD, not for CUSTOM
+    if (timeframe !== 'CUSTOM') {
+      fetchDashboardData();
+    }
+  }, [timeframe, fetchDashboardData]);
+
+  useEffect(() => {
+    console.log('timeframe', timeframe);
+  }, [timeframe]);
+
+  // Fetch announcements on mount
+  useEffect(() => {
+    fetchAnnouncements();
+  }, []);
+
+  // Fetch insights when dashboard data is fully loaded and setting is enabled
+  useEffect(() => {
+    if (
+      dashboardData &&
+      !loading &&
+      !loadingMonthly &&
+      !loadingPrevious &&
+      currentSession.user.accountingService &&
+      currentSession.user.enableAiFinancialInsights
+    ) {
+      fetchInsights();
+    }
+  }, [loading, loadingMonthly, loadingPrevious, dashboardData, currentSession.user.accountingService, currentSession.user.enableAiFinancialInsights]);
+
+  const fetchInsights = async () => {
+    if (!dashboardData) return;
+    
+    try {
+      setLoadingInsights(true);
+      const response = await fetch('/api/dashboard/insights', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ dashboardData }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setInsights(data.insights);
+      } else {
+        console.error('Failed to fetch insights');
+      }
+    } catch (error) {
+      console.error('Error fetching insights:', error);
+    } finally {
+      setLoadingInsights(false);
+    }
+  };
+
+  const fetchAnnouncements = async () => {
+    try {
+      const response = await fetch('/api/announcements/unread');
+      if (response.ok) {
+        const data = await response.json();
+        setAnnouncements(data.announcements || []);
+      }
+    } catch (error) {
+      console.error('Error fetching announcements:', error);
+    }
+  };
+
+  const handleMarkAnnouncementRead = async (announcementId: string) => {
+    try {
+      await fetch('/api/announcements/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ announcementId }),
+      });
+      
+      // Move to next announcement or close
+      if (currentAnnouncementIndex < announcements.length - 1) {
+        setCurrentAnnouncementIndex(currentAnnouncementIndex + 1);
+      } else {
+        setAnnouncements([]);
+        setCurrentAnnouncementIndex(0);
+      }
+    } catch (error) {
+      console.error('Error marking announcement as read:', error);
+    }
+  };
+
+  const handleCloseAnnouncement = () => {
+    if (currentAnnouncementIndex < announcements.length - 1) {
+      setCurrentAnnouncementIndex(currentAnnouncementIndex + 1);
+    } else {
+      setAnnouncements([]);
+      setCurrentAnnouncementIndex(0);
     }
   };
 
@@ -656,6 +772,26 @@ export default function DashboardContent({ session: initialSession }: DashboardC
           expenseName={selectedExpense}
           fromDate={dashboardData.timeframe.from}
           toDate={dashboardData.timeframe.to}
+        />
+      )}
+
+      {/* Financial Insights Popup */}
+      {currentSession.user.accountingService && currentSession.user.enableAiFinancialInsights && (
+        <FinancialInsightPopup
+          insights={insights}
+          loading={loadingInsights}
+          isOpen={showInsightsPopup}
+          onClose={() => setShowInsightsPopup(false)}
+          onOpen={() => setShowInsightsPopup(true)}
+        />
+      )}
+
+      {/* Announcement Popup */}
+      {announcements.length > 0 && announcements[currentAnnouncementIndex] && (
+        <AnnouncementPopup
+          announcement={announcements[currentAnnouncementIndex]}
+          onClose={handleCloseAnnouncement}
+          onMarkRead={handleMarkAnnouncementRead}
         />
       )}
     </div>

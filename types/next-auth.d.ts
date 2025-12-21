@@ -6,6 +6,7 @@ declare module "next-auth" {
       id: string;
       isAdmin: boolean;
       accountingService?: string | null;
+      enableAiFinancialInsights?: boolean;
     } & DefaultSession["user"];
   }
 
@@ -13,6 +14,7 @@ declare module "next-auth" {
     id: string;
     isAdmin: boolean;
     accountingService?: string | null;
+    enableAiFinancialInsights?: boolean;
   }
 }
 
@@ -21,6 +23,7 @@ declare module "next-auth/jwt" {
     id: string;
     isAdmin: boolean;
     accountingService?: string | null;
+    enableAiFinancialInsights?: boolean;
   }
 }
 

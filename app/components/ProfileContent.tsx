@@ -4,7 +4,7 @@ import { Session } from "next-auth";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Card, CardBody, Input, Button, Chip } from "@nextui-org/react";
+import { Card, CardBody, Input, Button, Chip, Switch } from "@nextui-org/react";
 import AdminPanel from "./AdminPanel";
 
 interface ProfileContentProps {
@@ -24,6 +24,9 @@ export default function ProfileContent({ session: initialSession }: ProfileConte
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [enableAiInsights, setEnableAiInsights] = useState(
+    (currentSession.user as any).enableAiFinancialInsights || false
+  );
 
   // Trigger session update when returning from OAuth callback
   useEffect(() => {
@@ -125,6 +128,31 @@ export default function ProfileContent({ session: initialSession }: ProfileConte
       setMessage({ type: "error", text: "An error occurred" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleAiInsights = async (enabled: boolean) => {
+    setEnableAiInsights(enabled);
+    try {
+      const response = await fetch("/api/profile/ai-insights-setting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enableAiFinancialInsights: enabled }),
+      });
+
+      if (response.ok) {
+        setMessage({ type: "success", text: "Setting updated successfully!" });
+        await update();
+      } else {
+        const data = await response.json();
+        setMessage({ type: "error", text: data.error || "Failed to update setting" });
+        // Revert on error
+        setEnableAiInsights(!enabled);
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: "An error occurred" });
+      // Revert on error
+      setEnableAiInsights(!enabled);
     }
   };
 
@@ -262,6 +290,38 @@ export default function ProfileContent({ session: initialSession }: ProfileConte
                 Change Password
               </Button>
             </form>
+          </CardBody>
+        </Card>
+
+        {/* Settings */}
+        <Card className="bg-[#1D1D1D] rounded-3xl shadow-2xl border-none">
+          <CardBody className="p-8">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="bg-[#E8E7BB] p-2 rounded-full">
+                <div className="w-2 h-2 bg-[#1D1D1D] rounded-full"></div>
+              </div>
+              <h2 className="text-2xl font-bold text-white">Settings</h2>
+            </div>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between p-6 bg-white/5 rounded-2xl border border-white/10">
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold text-white mb-1">
+                    AI Financial Insights
+                  </h3>
+                  <p className="text-sm text-gray-400">
+                    Enable AI-powered financial insights and recommendations on your dashboard
+                  </p>
+                </div>
+                <Switch
+                  isSelected={enableAiInsights}
+                  onValueChange={handleToggleAiInsights}
+                  classNames={{
+                    base: "ml-4",
+                    wrapper: "bg-white/10 group-data-[selected=true]:bg-[#E8E7BB]",
+                  }}
+                />
+              </div>
+            </div>
           </CardBody>
         </Card>
 

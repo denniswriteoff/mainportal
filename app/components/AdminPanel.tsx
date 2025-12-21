@@ -15,6 +15,13 @@ import {
   TableRow,
   TableCell,
   Checkbox,
+  Textarea,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  useDisclosure,
 } from "@nextui-org/react";
 
 interface User {
@@ -25,6 +32,16 @@ interface User {
   accountingService: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface Announcement {
+  id: string;
+  title: string;
+  message: string;
+  createdAt: string;
+  _count?: {
+    userAnnouncements: number;
+  };
 }
 
 export default function AdminPanel() {
@@ -42,10 +59,25 @@ export default function AdminPanel() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  
+  // Announcement form state
+  const [announcementTitle, setAnnouncementTitle] = useState("");
+  const [announcementMessage, setAnnouncementMessage] = useState("");
+  const [creatingAnnouncement, setCreatingAnnouncement] = useState(false);
+  
+  // Announcement management state
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editMessage, setEditMessage] = useState("");
+  const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<string | null>(null);
+  const { isOpen, onOpen, onClose } = useDisclosure();
 
-  // Fetch users on mount
+  // Fetch users and announcements on mount
   useEffect(() => {
     fetchUsers();
+    fetchAnnouncements();
   }, []);
 
   const fetchUsers = async () => {
@@ -131,6 +163,122 @@ export default function AdminPanel() {
     }
   };
 
+  const fetchAnnouncements = async () => {
+    try {
+      setLoadingAnnouncements(true);
+      const response = await fetch("/api/announcements");
+      if (response.ok) {
+        const data = await response.json();
+        setAnnouncements(data.announcements || []);
+      } else {
+        const errorData = await response.json();
+        setMessage({ type: "error", text: errorData.error || "Failed to fetch announcements" });
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: "An error occurred while fetching announcements" });
+    } finally {
+      setLoadingAnnouncements(false);
+    }
+  };
+
+  const handleCreateAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreatingAnnouncement(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/announcements/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: announcementTitle,
+          message: announcementMessage,
+        }),
+      });
+
+      if (response.ok) {
+        setMessage({ type: "success", text: "Announcement created successfully! It will be shown to all users who signed up before this announcement was created." });
+        
+        // Reset form
+        setAnnouncementTitle("");
+        setAnnouncementMessage("");
+        // Refresh announcements list
+        fetchAnnouncements();
+      } else {
+        const errorData = await response.json();
+        setMessage({ type: "error", text: errorData.error || "Failed to create announcement" });
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: "An error occurred while creating announcement" });
+    } finally {
+      setCreatingAnnouncement(false);
+    }
+  };
+
+  const handleEditAnnouncement = (announcement: Announcement) => {
+    setEditingAnnouncement(announcement);
+    setEditTitle(announcement.title);
+    setEditMessage(announcement.message);
+    onOpen();
+  };
+
+  const handleUpdateAnnouncement = async () => {
+    if (!editingAnnouncement) return;
+
+    try {
+      const response = await fetch("/api/announcements", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingAnnouncement.id,
+          title: editTitle,
+          message: editMessage,
+        }),
+      });
+
+      if (response.ok) {
+        setMessage({ type: "success", text: "Announcement updated successfully!" });
+        onClose();
+        setEditingAnnouncement(null);
+        setEditTitle("");
+        setEditMessage("");
+        fetchAnnouncements();
+      } else {
+        const errorData = await response.json();
+        setMessage({ type: "error", text: errorData.error || "Failed to update announcement" });
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: "An error occurred while updating announcement" });
+    }
+  };
+
+  const handleDeleteAnnouncement = async (announcementId: string) => {
+    if (!confirm("Are you sure you want to delete this announcement? This action cannot be undone.")) {
+      return;
+    }
+
+    setDeletingAnnouncementId(announcementId);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/announcements?id=${announcementId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        setAnnouncements(announcements.filter((a) => a.id !== announcementId));
+        setMessage({ type: "success", text: "Announcement deleted successfully!" });
+      } else {
+        const errorData = await response.json();
+        setMessage({ type: "error", text: errorData.error || "Failed to delete announcement" });
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: "An error occurred while deleting announcement" });
+    } finally {
+      setDeletingAnnouncementId(null);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -152,6 +300,160 @@ export default function AdminPanel() {
           {message.text}
         </div>
       )}
+
+      {/* Create Announcement Form */}
+      <Card className="bg-[#1D1D1D] rounded-3xl shadow-2xl border-none">
+        <CardBody className="p-8">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="bg-[#E8E7BB] p-2 rounded-full">
+              <div className="w-2 h-2 bg-[#1D1D1D] rounded-full"></div>
+            </div>
+            <h2 className="text-2xl font-bold text-white">Create Announcement</h2>
+          </div>
+          
+          <form onSubmit={handleCreateAnnouncement} className="space-y-6">
+            <div>
+              <label className="text-sm font-medium text-gray-400 mb-2 block">
+                Title
+              </label>
+              <Input
+                value={announcementTitle}
+                onValueChange={setAnnouncementTitle}
+                variant="bordered"
+                isRequired
+                placeholder="e.g., New Feature Available"
+                classNames={{
+                  input: "text-white",
+                  inputWrapper: "bg-white/5 border-white/10 hover:bg-white/10 rounded-xl",
+                }}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-400 mb-2 block">
+                Message
+              </label>
+              <Textarea
+                value={announcementMessage}
+                onValueChange={setAnnouncementMessage}
+                variant="bordered"
+                isRequired
+                placeholder="Enter the announcement message (supports markdown)"
+                minRows={4}
+                classNames={{
+                  input: "text-white",
+                  inputWrapper: "bg-white/5 border-white/10 hover:bg-white/10 rounded-xl",
+                }}
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Note: This announcement will only be shown to users who signed up before it was created.
+              </p>
+            </div>
+
+            <Button
+              type="submit"
+              isLoading={creatingAnnouncement}
+              isDisabled={creatingAnnouncement}
+              className="w-full bg-[#E8E7BB] text-[#1D1D1D] font-semibold rounded-full h-12 text-base hover:bg-[#d4d3a7] transition-all shadow-lg"
+            >
+              Create Announcement
+            </Button>
+          </form>
+        </CardBody>
+      </Card>
+
+      {/* Announcements Management */}
+      <Card className="bg-[#1D1D1D] rounded-3xl shadow-2xl border-none">
+        <CardBody className="p-8">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="bg-[#E8E7BB] p-2 rounded-full">
+              <div className="w-2 h-2 bg-[#1D1D1D] rounded-full"></div>
+            </div>
+            <h2 className="text-2xl font-bold text-white">Announcements Management</h2>
+          </div>
+
+          {loadingAnnouncements ? (
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#E8E7BB]"></div>
+              <p className="text-gray-400 mt-4">Loading announcements...</p>
+            </div>
+          ) : announcements.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-400">No announcements found</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table
+                aria-label="Announcements table"
+                classNames={{
+                  wrapper: "bg-transparent shadow-none",
+                  th: "bg-white/5 text-gray-400 font-semibold",
+                  td: "text-white",
+                }}
+              >
+                <TableHeader>
+                  <TableColumn>TITLE</TableColumn>
+                  <TableColumn>MESSAGE</TableColumn>
+                  <TableColumn>CREATED</TableColumn>
+                  <TableColumn>ACTIONS</TableColumn>
+                </TableHeader>
+                <TableBody>
+                  {announcements.map((announcement) => (
+                    <TableRow key={announcement.id}>
+                      <TableCell className="max-w-xs">
+                        <div className="truncate font-semibold">{announcement.title}</div>
+                      </TableCell>
+                      <TableCell className="max-w-md">
+                        <div className="truncate text-sm text-gray-400">
+                          {announcement.message.substring(0, 100)}
+                          {announcement.message.length > 100 ? "..." : ""}
+                        </div>
+                      </TableCell>
+                      <TableCell>{formatDate(announcement.createdAt)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            onPress={() => handleEditAnnouncement(announcement)}
+                            className="bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 transition-all"
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            isIconOnly
+                            onPress={() => handleDeleteAnnouncement(announcement.id)}
+                            isLoading={deletingAnnouncementId === announcement.id}
+                            isDisabled={deletingAnnouncementId === announcement.id}
+                            className="bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all min-w-8 h-8"
+                          >
+                            {deletingAnnouncementId === announcement.id ? null : (
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                strokeWidth={2}
+                                stroke="currentColor"
+                                className="w-4 h-4"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+                                />
+                              </svg>
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardBody>
+      </Card>
 
       {/* Create User Form */}
       <Card className="bg-[#1D1D1D] rounded-3xl shadow-2xl border-none">
@@ -348,6 +650,74 @@ export default function AdminPanel() {
           )}
         </CardBody>
       </Card>
+
+      {/* Edit Announcement Modal */}
+      <Modal isOpen={isOpen} onClose={onClose} size="2xl" classNames={{
+        base: "bg-[#1D1D1D]",
+        header: "border-b border-white/10",
+        body: "py-6",
+        footer: "border-t border-white/10",
+      }}>
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="text-white">Edit Announcement</ModalHeader>
+              <ModalBody>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-400 mb-2 block">
+                      Title
+                    </label>
+                    <Input
+                      value={editTitle}
+                      onValueChange={setEditTitle}
+                      variant="bordered"
+                      isRequired
+                      classNames={{
+                        input: "text-white",
+                        inputWrapper: "bg-white/5 border-white/10 hover:bg-white/10 rounded-xl",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-400 mb-2 block">
+                      Message
+                    </label>
+                    <Textarea
+                      value={editMessage}
+                      onValueChange={setEditMessage}
+                      variant="bordered"
+                      isRequired
+                      minRows={4}
+                      classNames={{
+                        input: "text-white",
+                        inputWrapper: "bg-white/5 border-white/10 hover:bg-white/10 rounded-xl",
+                      }}
+                    />
+                  </div>
+                </div>
+              </ModalBody>
+              <ModalFooter>
+                <Button
+                  onPress={onClose}
+                  className="bg-white/10 text-white hover:bg-white/20"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onPress={() => {
+                    handleUpdateAnnouncement();
+                    onClose();
+                  }}
+                  className="bg-[#E8E7BB] text-[#1D1D1D] font-semibold hover:bg-[#d4d3a7]"
+                >
+                  Save Changes
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

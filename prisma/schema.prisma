@@ -18,6 +18,7 @@ model User {
   canModifySystemPrompt Boolean        @default(false)
   canCreateUsers        Boolean        @default(false)
   accountingService     String?        // 'QBO' or 'XERO' - user can only have one
+  enableAiFinancialInsights Boolean    @default(false)
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
   accounts              Account[]
@@ -26,6 +27,8 @@ model User {
   xeroTokens            XeroToken[]
   conversations         Conversation[]
   widgets               Widget[]
+  financialInsights     FinancialInsight[]
+  userAnnouncements     UserAnnouncement[]
 
   @@index([email])
 }
@@ -163,5 +166,43 @@ model Widget {
 
   @@index([userId])
   @@index([conversationId])
+}
+
+model FinancialInsight {
+  id        String   @id @default(cuid())
+  userId    String
+  insight   String   @db.Text
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@unique([userId])
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  message   String   @db.Text
+  createdAt DateTime @default(now())
+  userAnnouncements UserAnnouncement[]
+
+  @@index([createdAt])
+}
+
+model UserAnnouncement {
+  id            String      @id @default(cuid())
+  userId        String
+  announcementId String
+  read          Boolean     @default(false)
+  readAt        DateTime?
+  createdAt     DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  announcement  Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, announcementId])
+  @@index([userId])
+  @@index([announcementId])
 }
 
