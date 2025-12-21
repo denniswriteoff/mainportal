@@ -53,6 +53,8 @@ export default function DashboardContent({ session: initialSession }: DashboardC
       const wasClosed = sessionStorage.getItem('financial-insights-popup-closed') === 'true';
       if (wasClosed) {
         setShowInsightsPopup(false);
+      } else {
+        setShowInsightsPopup(true);
       }
     }
   }, []);
