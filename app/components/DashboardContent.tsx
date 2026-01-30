@@ -427,14 +427,15 @@ export default function DashboardContent({ session: initialSession }: DashboardC
   const firstName = currentSession.user.name?.split(" ")[0] || "User";
 
     return (
-      <div className="flex-1 overflow-y-auto bg-[#E8E7BB]">
+      <div className="flex-1 overflow-y-auto bg-gradient-to-br from-[#0f0f0f] via-[#171714] to-[#1a1a1a]">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-[#1D1D1D] border-b border-gray-800 px-6 py-4 backdrop-blur-sm">
+      <div className="sticky top-0 z-10 bg-[#1D1D1D]/80 backdrop-blur-xl border-b border-white/5 px-6 py-5">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-white">
-              Welcome Back, <span className="text-gray-400">{firstName}</span>
+            <h1 className="text-3xl font-bold text-white tracking-tight">
+              Welcome back, <span className="text-[#E8E7BB]">{firstName}</span>
             </h1>
+            <p className="text-sm text-gray-400 mt-1">Monitor your business financial health</p>
           </div>
           <div className="flex items-center gap-3">
             {!currentSession.user.accountingService && (
@@ -501,20 +502,20 @@ export default function DashboardContent({ session: initialSession }: DashboardC
         ) : (
           <div className="space-y-6 animate-slide-in">
             {/* Timeframe Toggle - Always visible */}
-            <div className="flex items-center justify-between bg-[#1D1D1D] rounded-full px-6 py-4 shadow-2xl">
+            <div className="flex items-center justify-between bg-white/5 backdrop-blur-sm rounded-2xl px-6 py-4 border border-white/10 shadow-lg">
               <div className="flex items-center space-x-3">
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-xl font-semibold text-white">
                   {dashboardData?.organisation?.name || 'Financial'} Overview
                 </h2>
                 {dashboardData?.timeframe && timeframe !== 'CUSTOM' && (
-                  <span className="text-sm text-gray-400 bg-white/10 px-3 py-1 rounded-full">
+                  <span className="text-xs text-gray-300 bg-[#E8E7BB]/10 px-3 py-1.5 rounded-full border border-[#E8E7BB]/20">
                     {dashboardData.timeframe.from} to {dashboardData.timeframe.to}
                   </span>
                 )}
               </div>
               
               <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2 bg-white/10 rounded-full p-1">
+                <div className="flex items-center space-x-2 bg-white/5 rounded-xl p-1.5 border border-white/10">
                   <button
                     onClick={() => {
                       setTimeframe('MONTH');
@@ -523,10 +524,10 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                         setCustomToDate('');
                       }
                     }}
-                    className={`px-5 py-2 text-sm rounded-full font-medium transition-all ${
+                    className={`px-4 py-2 text-sm rounded-lg font-medium transition-all ${
                       timeframe === 'MONTH'
-                        ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-md'
-                        : 'text-gray-300 hover:text-white'
+                        ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-lg'
+                        : 'text-gray-300 hover:text-white hover:bg-white/5'
                     }`}
                   >
                     MTD
@@ -539,10 +540,10 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                         setCustomToDate('');
                       }
                     }}
-                    className={`px-5 py-2 text-sm rounded-full font-medium transition-all ${
+                    className={`px-4 py-2 text-sm rounded-lg font-medium transition-all ${
                       timeframe === 'YEAR'
-                        ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-md'
-                        : 'text-gray-300 hover:text-white'
+                        ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-lg'
+                        : 'text-gray-300 hover:text-white hover:bg-white/5'
                     }`}
                   >
                     YTD
@@ -555,9 +556,9 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                         setCustomToDate('');
                       }
                     }}
-                    className={`px-5 py-2 text-sm rounded-full font-medium transition-all ${
+                    className={`px-4 py-2 text-sm rounded-lg font-medium transition-all ${
                       timeframe === 'L12'
-                        ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-md'
+                        ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-lg'
                         : 'text-gray-300 hover:text-white'
                     }`}
                   >
@@ -620,66 +621,66 @@ export default function DashboardContent({ session: initialSession }: DashboardC
               <>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="group bg-gradient-to-br from-[#1D1D1D] to-[#2a2a2a] rounded-3xl p-6 shadow-2xl hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] transition-all hover:scale-105">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+              <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-[#E8E7BB]/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="bg-gradient-to-br from-[#E8E7BB] to-[#d4d3a7] p-3 rounded-full shadow-lg group-hover:shadow-xl transition-shadow">
-                    <DollarSign className="w-6 h-6 text-[#1D1D1D]" />
+                  <div className="bg-[#E8E7BB]/20 p-3 rounded-xl">
+                    <DollarSign className="w-6 h-6 text-[#E8E7BB]" />
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider font-medium">Revenue</p>
-                <p className="text-3xl font-bold text-white mb-1">{formatCurrency(dashboardData?.kpis?.revenue || 0)}</p>
+                <p className="text-xs text-gray-400 mb-2 uppercase tracking-widest font-semibold">Revenue</p>
+                <p className="text-2xl font-bold text-white">{formatCurrency(dashboardData?.kpis?.revenue || 0)}</p>
               </div>
 
-              <div className="group bg-gradient-to-br from-[#1D1D1D] to-[#2a2a2a] rounded-3xl p-6 shadow-2xl hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] transition-all hover:scale-105">
+              <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-red-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="bg-red-500/20 p-3 rounded-full shadow-lg backdrop-blur-sm group-hover:shadow-xl transition-shadow">
+                  <div className="bg-red-500/20 p-3 rounded-xl">
                     <TrendingDown className="w-6 h-6 text-red-400" />
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider font-medium">Expenses</p>
-                <p className="text-3xl font-bold text-white mb-1">{formatCurrency(dashboardData?.kpis?.expenses || 0)}</p>
+                <p className="text-xs text-gray-400 mb-2 uppercase tracking-widest font-semibold">Expenses</p>
+                <p className="text-2xl font-bold text-white">{formatCurrency(dashboardData?.kpis?.expenses || 0)}</p>
               </div>
 
-              <div className="group bg-gradient-to-br from-[#1D1D1D] to-[#2a2a2a] rounded-3xl p-6 shadow-2xl hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] transition-all hover:scale-105">
+              <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-blue-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="bg-blue-500/20 p-3 rounded-full shadow-lg backdrop-blur-sm group-hover:shadow-xl transition-shadow">
+                  <div className="bg-blue-500/20 p-3 rounded-xl">
                     <TrendingUp className="w-6 h-6 text-blue-400" />
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider font-medium">Net Profit</p>
-                <p className="text-3xl font-bold text-white mb-1">{formatCurrency(dashboardData?.kpis?.netProfit || 0)}</p>
+                <p className="text-xs text-gray-400 mb-2 uppercase tracking-widest font-semibold">Net Profit</p>
+                <p className="text-2xl font-bold text-white">{formatCurrency(dashboardData?.kpis?.netProfit || 0)}</p>
               </div>
 
-              <div className="group bg-gradient-to-br from-[#1D1D1D] to-[#2a2a2a] rounded-3xl p-6 shadow-2xl hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] transition-all hover:scale-105">
+              <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-purple-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="bg-purple-500/20 p-3 rounded-full shadow-lg backdrop-blur-sm group-hover:shadow-xl transition-shadow">
+                  <div className="bg-purple-500/20 p-3 rounded-xl">
                     <Wallet className="w-6 h-6 text-purple-400" />
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider font-medium">Cash Balance</p>
-                <p className="text-3xl font-bold text-white mb-1">{formatCurrency(dashboardData?.kpis?.cashBalance || 0)}</p>
+                <p className="text-xs text-gray-400 mb-2 uppercase tracking-widest font-semibold">Cash Balance</p>
+                <p className="text-2xl font-bold text-white">{formatCurrency(dashboardData?.kpis?.cashBalance || 0)}</p>
               </div>
             </div>
 
             {/* Net Margin & Cash Runway - Side by Side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {/* Net Margin */}
-              <div className="bg-gradient-to-br from-[#1D1D1D] to-[#2a2a2a] rounded-3xl p-6 shadow-2xl">
-                <div className="flex items-center justify-between">
+              <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-[#E8E7BB]/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
+                <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center space-x-4">
-                    <div className="bg-[#E8E7BB] p-4 rounded-full">
-                      <BarChart3 className="w-6 h-6 text-[#1D1D1D]" />
+                    <div className="bg-[#E8E7BB]/20 p-3 rounded-xl">
+                      <BarChart3 className="w-6 h-6 text-[#E8E7BB]" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-400 mb-1 font-medium">Net Margin</p>
-                      <p className="text-3xl font-bold text-white">{formatPercentage(dashboardData?.kpis?.netMargin || 0)}</p>
+                      <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold">Net Margin</p>
+                      <p className="text-3xl font-bold text-white mt-1">{formatPercentage(dashboardData?.kpis?.netMargin || 0)}</p>
                     </div>
                   </div>
                 </div>
-                <div className="mt-4 flex items-center space-x-2">
-                  <p className="text-xs text-gray-400 uppercase tracking-wider">Performance</p>
-                  <div className="h-2 flex-1 bg-white/10 rounded-full overflow-hidden">
+                <div className="flex items-center space-x-2">
+                  <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold">Performance</p>
+                  <div className="h-2 flex-1 bg-white/5 rounded-full overflow-hidden border border-white/10">
                     <div 
                       className="h-full bg-gradient-to-r from-[#E8E7BB] to-green-400"
                       style={{ width: `${Math.min(Math.max((dashboardData?.kpis?.netMargin || 0), 0), 100)}%` }}
@@ -689,23 +690,19 @@ export default function DashboardContent({ session: initialSession }: DashboardC
               </div>
 
               {/* Cash Runway */}
-              <div className="bg-gradient-to-br from-[#1D1D1D] to-[#2a2a2a] rounded-3xl p-6 shadow-2xl">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-[#E8E7BB] p-3 rounded-full">
-                      <Wallet className="w-5 h-5 text-[#1D1D1D]" />
+              <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-purple-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-purple-500/20 p-3 rounded-xl">
+                      <Wallet className="w-6 h-6 text-purple-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-400 mb-1 font-medium">Cash Runway</p>
-                      <p className="text-2xl font-bold text-white">{cashRunwayMonths ? `${cashRunwayMonths.toFixed(1)} months` : '—'}</p>
-                      <p className="text-sm text-gray-400 mt-1">Based on last month's expenses</p>
+                      <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold">Cash Runway</p>
+                      <p className="text-3xl font-bold text-white mt-1">{cashRunwayMonths ? `${cashRunwayMonths.toFixed(1)} months` : '—'}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-400">Cash Balance</p>
-                    <p className="text-lg font-bold text-white">{formatCurrency(dashboardData?.kpis?.cashBalance || 0)}</p>
-                  </div>
                 </div>
+                <p className="text-xs text-gray-500 mt-3">Based on last month's expenses</p>
               </div>
             </div>
 
@@ -727,25 +724,25 @@ export default function DashboardContent({ session: initialSession }: DashboardC
             />
 
             {/* Category Highlights Table */}
-            <div className="bg-[#1D1D1D] rounded-3xl p-8 shadow-2xl">
+            <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-purple-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center space-x-3">
-                  <div className="bg-[#E8E7BB] p-2 rounded-full">
-                    <div className="w-2 h-2 bg-[#1D1D1D] rounded-full"></div>
+                    <div className="bg-purple-500/20 p-3 rounded-xl">
+                      <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
                   </div>
-                  <h3 className="text-2xl font-bold text-white">Category Highlights</h3>
+                    <h3 className="text-2xl font-bold text-white tracking-wide">Category Highlights</h3>
                 </div>
                 <div className="flex items-center space-x-2">
                   <button 
                     onClick={() => handleExport('csv')}
-                    className="flex items-center space-x-2 text-sm text-gray-400 hover:text-[#1D1D1D] hover:bg-[#E8E7BB] px-4 py-2 rounded-full transition-all font-medium"
+                      className="flex items-center space-x-2 text-sm text-gray-400 hover:text-white hover:bg-gray-400/10 px-3 py-2 rounded-lg transition-all font-medium border border-white/5 hover:border-white/20"
                   >
                     <Download className="w-4 h-4" />
                     <span>CSV</span>
                   </button>
                   <button 
                     onClick={() => handleExport('json')}
-                    className="flex items-center space-x-2 text-sm text-gray-400 hover:text-[#1D1D1D] hover:bg-[#E8E7BB] px-4 py-2 rounded-full transition-all font-medium"
+                      className="flex items-center space-x-2 text-sm text-gray-400 hover:text-white hover:bg-gray-400/10 px-3 py-2 rounded-lg transition-all font-medium border border-white/5 hover:border-white/20"
                   >
                     <Download className="w-4 h-4" />
                     <span>JSON</span>

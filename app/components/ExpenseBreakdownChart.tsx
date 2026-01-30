@@ -30,8 +30,8 @@ const COLORS = [
 
 export default function ExpenseBreakdownChart({ data, loading = false, onExpenseClick }: ExpenseBreakdownChartProps) {
   if (loading) {
-    return (
-      <div className="bg-[#1D1D1D] rounded-3xl p-8 shadow-2xl">
+      return (
+        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 shadow-lg">
         <div className="flex items-center justify-center h-80">
           <div className="text-sm text-gray-400">Loading chart data...</div>
         </div>
@@ -40,8 +40,8 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
   }
 
   if (!data || data.length === 0) {
-    return (
-      <div className="bg-[#1D1D1D] rounded-3xl p-8 shadow-2xl">
+      return (
+        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 shadow-lg">
         <div className="flex items-center justify-center h-80">
           <div className="text-sm text-gray-400">No expense data available</div>
         </div>
@@ -115,15 +115,15 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
   }
 
   return (
-    <div className="bg-[#1D1D1D] rounded-3xl p-8 shadow-2xl">
+    <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-yellow-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
       <div className="mb-8">
         <div className="flex items-center space-x-3 mb-2">
-          <div className="bg-[#E8E7BB] p-2 rounded-full">
-            <div className="w-2 h-2 bg-[#1D1D1D] rounded-full"></div>
+            <div className="bg-amber-500/20 p-3 rounded-xl">
+              <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
           </div>
-          <h3 className="text-2xl font-bold text-white">Expense Breakdown</h3>
+            <h3 className="text-2xl font-bold text-white tracking-wide">Expense Breakdown</h3>
         </div>
-        <p className="text-sm text-gray-400 ml-11">Distribution of operating expenses by category</p>
+          <p className="text-xs text-gray-500 ml-11 tracking-wide">Distribution of operating expenses by category</p>
       </div>
       
       <div className="h-80">

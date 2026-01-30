@@ -39,17 +39,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#E8E7BB] p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f0f0f] via-[#171714] to-[#1a1a1a] p-4 relative overflow-hidden">
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 right-20 w-96 h-96 bg-[#1D1D1D] opacity-5 rounded-full blur-3xl"></div>
         <div className="absolute bottom-20 left-20 w-96 h-96 bg-[#1D1D1D] opacity-5 rounded-full blur-3xl"></div>
       </div>
 
-      <Card className="w-full max-w-md bg-[#1D1D1D] shadow-2xl border-none rounded-3xl relative z-10">
-        <CardBody className="p-10">
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-[#E8E7BB] rounded-2xl mb-6 shadow-lg p-4">
+      <Card className="w-full max-w-md bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 shadow-lg relative z-10">
+        <CardBody className="p-6">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-[#E8E7BB] to-[#d4d3a7] rounded-2xl mb-6 shadow-lg p-4">
               <Image
                 src="/image.png"
                 alt="Logo"
@@ -59,8 +59,8 @@ export default function LoginPage() {
                 unoptimized
               />
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">Writeoff</h1>
-            <p className="text-gray-400 text-sm">
+            <h1 className="text-3xl font-bold text-white mb-2 tracking-wide">Writeoff</h1>
+            <p className="text-white/60 text-sm">
               Welcome back! Please login to continue.
             </p>
           </div>
@@ -84,8 +84,8 @@ export default function LoginPage() {
                 variant="bordered"
                 isRequired
                 classNames={{
-                  input: "text-black text-base placeholder:text-gray-500",
-                  inputWrapper: "bg-white border-gray-300 hover:bg-white rounded-xl h-12 data-[hover=true]:bg-white",
+                  input: "text-white text-base placeholder-white/40",
+                  inputWrapper: "bg-white/5 border-white/10 hover:bg-white/10 rounded-xl h-12",
                 }}
               />
             </div>
@@ -102,8 +102,8 @@ export default function LoginPage() {
                 variant="bordered"
                 isRequired
                 classNames={{
-                  input: "text-black text-base placeholder:text-gray-500",
-                  inputWrapper: "bg-white border-gray-300 hover:bg-white rounded-xl h-12 data-[hover=true]:bg-white",
+                  input: "text-white text-base placeholder-white/40",
+                  inputWrapper: "bg-white/5 border-white/10 hover:bg-white/10 rounded-xl h-12",
                 }}
               />
             </div>
@@ -111,7 +111,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               isLoading={loading}
-              className="w-full bg-[#E8E7BB] text-[#1D1D1D] font-bold rounded-full h-12 text-base hover:bg-[#d4d3a7] transition-all shadow-lg mt-8"
+              className="w-full bg-[#E8E7BB] text-[#1D1D1D] font-semibold rounded-lg h-12 text-base hover:bg-[#d4d3a7] transition-all shadow-md mt-6"
             >
               {loading ? "Signing in..." : "Sign In"}
             </Button>

@@ -157,9 +157,9 @@ export default function ProfileContent({ session: initialSession }: ProfileConte
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#E8E7BB]">
+    <div className="flex-1 overflow-y-auto bg-gradient-to-br from-[#0f0f0f] via-[#1D1D1D] to-[#1a1a1a]">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-[#1D1D1D] border-b border-gray-800 px-6 py-4 backdrop-blur-sm">
+      <div className="sticky top-0 z-10 bg-[#1D1D1D]/80 backdrop-blur-xl border-b border-white/5 px-6 py-5">
         <div className="max-w-5xl mx-auto">
           <h1 className="text-2xl font-semibold text-white">Profile Settings</h1>
           <p className="text-gray-400 text-sm mt-1">Manage your account settings and preferences</p>
@@ -181,13 +181,13 @@ export default function ProfileContent({ session: initialSession }: ProfileConte
         )}
 
         {/* Profile Information */}
-        <Card className="bg-[#1D1D1D] rounded-3xl shadow-2xl border-none">
-          <CardBody className="p-8">
+        <Card className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 shadow-lg">
+          <CardBody className="p-6">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="bg-[#E8E7BB] p-2 rounded-full">
-                <div className="w-2 h-2 bg-[#1D1D1D] rounded-full"></div>
+              <div className="bg-amber-500/20 p-3 rounded-xl">
+                <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
               </div>
-              <h2 className="text-2xl font-bold text-white">Profile Information</h2>
+              <h2 className="text-2xl font-bold text-white tracking-wide">Profile Information</h2>
             </div>
             <form onSubmit={handleUpdateProfile} className="space-y-6">
               <div>
@@ -230,13 +230,13 @@ export default function ProfileContent({ session: initialSession }: ProfileConte
         </Card>
 
         {/* Change Password */}
-        <Card className="bg-[#1D1D1D] rounded-3xl shadow-2xl border-none">
-          <CardBody className="p-8">
+        <Card className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 shadow-lg">
+          <CardBody className="p-6">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="bg-[#E8E7BB] p-2 rounded-full">
-                <div className="w-2 h-2 bg-[#1D1D1D] rounded-full"></div>
+              <div className="bg-amber-500/20 p-3 rounded-xl">
+                <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
               </div>
-              <h2 className="text-2xl font-bold text-white">Change Password</h2>
+              <h2 className="text-2xl font-bold text-white tracking-wide">Change Password</h2>
             </div>
             <form onSubmit={handleChangePassword} className="space-y-6">
               <div>
@@ -294,23 +294,19 @@ export default function ProfileContent({ session: initialSession }: ProfileConte
         </Card>
 
         {/* Settings */}
-        <Card className="bg-[#1D1D1D] rounded-3xl shadow-2xl border-none">
-          <CardBody className="p-8">
+        <Card className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 shadow-lg">
+          <CardBody className="p-6">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="bg-[#E8E7BB] p-2 rounded-full">
-                <div className="w-2 h-2 bg-[#1D1D1D] rounded-full"></div>
+              <div className="bg-amber-500/20 p-3 rounded-xl">
+                <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
               </div>
-              <h2 className="text-2xl font-bold text-white">Settings</h2>
+              <h2 className="text-2xl font-bold text-white tracking-wide">Settings</h2>
             </div>
             <div className="space-y-6">
               <div className="flex items-center justify-between p-6 bg-white/5 rounded-2xl border border-white/10">
                 <div className="flex-1">
-                  <h3 className="text-base font-semibold text-white mb-1">
-                    AI Financial Insights
-                  </h3>
-                  <p className="text-sm text-gray-400">
-                    Enable AI-powered financial insights and recommendations on your dashboard
-                  </p>
+                  <h3 className="text-base font-semibold text-white mb-1">AI Financial Insights</h3>
+                  <p className="text-sm text-gray-400">Enable AI-powered financial insights and recommendations on your dashboard</p>
                 </div>
                 <Switch
                   isSelected={enableAiInsights}
@@ -326,13 +322,13 @@ export default function ProfileContent({ session: initialSession }: ProfileConte
         </Card>
 
         {/* Connected Services */}
-        <Card className="bg-[#1D1D1D] rounded-3xl shadow-2xl border-none">
-          <CardBody className="p-8">
+        <Card className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 shadow-lg">
+          <CardBody className="p-6">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="bg-[#E8E7BB] p-2 rounded-full">
-                <div className="w-2 h-2 bg-[#1D1D1D] rounded-full"></div>
+              <div className="bg-amber-500/20 p-3 rounded-xl">
+                <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
               </div>
-              <h2 className="text-2xl font-bold text-white">Connected Services</h2>
+              <h2 className="text-2xl font-bold text-white tracking-wide">Connected Services</h2>
             </div>
             {currentSession.user.accountingService ? (
               <div className="flex items-center justify-between p-6 bg-white/5 rounded-2xl border border-white/10">
@@ -360,13 +356,13 @@ export default function ProfileContent({ session: initialSession }: ProfileConte
                   onPress={handleDisconnectService}
                   isLoading={loading}
                   isDisabled={loading}
-                  className="bg-red-500/20 text-red-400 border border-red-500/30 rounded-full px-6 hover:bg-red-500/30 transition-all"
+                  className="bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg px-4 py-2 hover:bg-red-500/30 transition-all"
                 >
                   Disconnect
                 </Button>
               </div>
             ) : (
-              <div className="text-center py-12">
+                <div className="text-center py-12">
                 <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -376,20 +372,8 @@ export default function ProfileContent({ session: initialSession }: ProfileConte
                   No accounting service connected
                 </p>
                 <div className="flex justify-center gap-3">
-                  <Button
-                    as="a"
-                    href="/api/auth/qbo/connect"
-                    className="bg-white/10 text-white rounded-full px-6 hover:bg-white/20 transition-all"
-                  >
-                    Connect QuickBooks
-                  </Button>
-                  <Button
-                    as="a"
-                    href="/api/auth/xero/connect"
-                    className="bg-[#E8E7BB] text-[#1D1D1D] font-semibold rounded-full px-6 hover:bg-[#d4d3a7] transition-all"
-                  >
-                    Connect Xero
-                  </Button>
+                  <Button as="a" href="/api/auth/qbo/connect" className="bg-white/10 text-white rounded-lg px-4 py-2 hover:bg-white/20 transition-all">Connect QuickBooks</Button>
+                  <Button as="a" href="/api/auth/xero/connect" className="bg-[#E8E7BB] text-[#1D1D1D] font-semibold rounded-lg px-4 py-2 hover:bg-[#d4d3a7] transition-all">Connect Xero</Button>
                 </div>
               </div>
             )}

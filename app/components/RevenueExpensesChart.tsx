@@ -16,8 +16,8 @@ interface RevenueExpensesChartProps {
 
 export default function RevenueExpensesChart({ data, loading = false }: RevenueExpensesChartProps) {
   if (loading) {
-    return (
-      <div className="bg-[#1D1D1D] rounded-3xl p-8 shadow-2xl">
+      return (
+        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 shadow-lg">
         <div className="flex items-center justify-center h-72">
           <div className="text-sm text-gray-400">Loading chart data...</div>
         </div>
@@ -68,7 +68,7 @@ export default function RevenueExpensesChart({ data, loading = false }: RevenueE
 
   // Initialize hidden keys: default series off if they have no data
   const initHiddenKeys = () => {
-    const first = data[0] || {} as any
+    const first = (data[0] || {}) as any
     const hidden: Record<string, boolean> = {}
     const keysToCheck = ['revenue', 'expenses', 'cogs', 'subcontractors', 'ownerRelated', 'otherExpenses']
     
@@ -109,21 +109,21 @@ export default function RevenueExpensesChart({ data, loading = false }: RevenueE
   }
 
   return (
-    <div className="bg-[#1D1D1D] rounded-3xl p-8 shadow-2xl">
+    <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-green-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
       <div className="mb-8">
         <div className="flex items-center space-x-3 mb-2">
-          <div className="bg-[#E8E7BB] p-2 rounded-full">
-            <div className="w-2 h-2 bg-[#1D1D1D] rounded-full"></div>
+          <div className="bg-[#0fb881]/20 p-2.5 rounded-xl">
+            <div className="w-2 h-2 bg-[#0fb881] rounded-full"></div>
           </div>
           <h3 className="text-2xl font-bold text-white">Revenue vs Expenses Trend</h3>
         </div>
-        <p className="text-sm text-gray-400 ml-11">Monthly comparison over time</p>
+        <p className="text-sm text-gray-400 ml-12">Monthly comparison over the selected period</p>
       </div>
       
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff15" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
             <XAxis 
               dataKey="month" 
               stroke="#6b7280"
@@ -145,9 +145,9 @@ export default function RevenueExpensesChart({ data, loading = false }: RevenueE
                 type="monotone" 
                 dataKey="revenue" 
                 stroke="#10b981" 
-                strokeWidth={3}
-                dot={{ fill: '#10b981', strokeWidth: 2, r: 5 }}
-                activeDot={{ r: 7, stroke: '#10b981', strokeWidth: 2 }}
+                strokeWidth={2.5}
+                dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
+                activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }}
                 name={labelForKey('revenue')}
               />
             )}
@@ -165,8 +165,8 @@ export default function RevenueExpensesChart({ data, loading = false }: RevenueE
                     dataKey={key}
                     stroke={color}
                     strokeWidth={2}
-                    dot={{ fill: color, strokeWidth: 1, r: 4 }}
-                    activeDot={{ r: 6 }}
+                    dot={{ fill: color, strokeWidth: 1.5, r: 3.5 }}
+                    activeDot={{ r: 5 }}
                     name={labelForKey(key)}
                   />
                 ) : null
@@ -177,21 +177,22 @@ export default function RevenueExpensesChart({ data, loading = false }: RevenueE
       </div>
 
       {/* Custom Interactive Legend */}
-      <div className="mt-8">
-        <div className="flex flex-wrap gap-3">
+      <div className="mt-8 pt-6 border-t border-white/10">
+        <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold mb-4">Toggle Series</p>
+        <div className="flex flex-wrap gap-2">
           {/* Revenue */}
           <button
             onClick={() => toggleKey('revenue')}
-            className="flex items-center space-x-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/10"
+            className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20"
           >
             <div
-              className="w-3 h-3 rounded-full transition-opacity"
+              className="w-2.5 h-2.5 rounded-full transition-opacity"
               style={{
                 backgroundColor: getColorForKey('revenue'),
-                opacity: hiddenKeys['revenue'] ? 0.4 : 1,
+                opacity: hiddenKeys['revenue'] ? 0.3 : 1,
               }}
             />
-            <span className={`text-sm font-medium transition-opacity ${hiddenKeys['revenue'] ? 'text-gray-500' : 'text-gray-300'}`}>
+            <span className={`text-xs font-medium transition-opacity ${hiddenKeys['revenue'] ? 'text-gray-500' : 'text-gray-300'}`}>
               {labelForKey('revenue')}
             </span>
           </button>
@@ -204,16 +205,16 @@ export default function RevenueExpensesChart({ data, loading = false }: RevenueE
               <button
                 key={key}
                 onClick={() => toggleKey(key)}
-                className="flex items-center space-x-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/10"
+                className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20"
               >
                 <div
-                  className="w-3 h-3 rounded-full transition-opacity"
+                  className="w-2.5 h-2.5 rounded-full transition-opacity"
                   style={{
                     backgroundColor: getColorForKey(key),
-                    opacity: hiddenKeys[key] ? 0.4 : 1,
+                    opacity: hiddenKeys[key] ? 0.3 : 1,
                   }}
                 />
-                <span className={`text-sm font-medium transition-opacity ${hiddenKeys[key] ? 'text-gray-500' : 'text-gray-300'}`}>
+                <span className={`text-xs font-medium transition-opacity ${hiddenKeys[key] ? 'text-gray-500' : 'text-gray-300'}`}>
                   {labelForKey(key)}
                 </span>
               </button>

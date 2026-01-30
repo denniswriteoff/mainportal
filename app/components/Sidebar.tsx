@@ -95,7 +95,7 @@ export default function Sidebar({ accountingService }: SidebarProps) {
   return (
     <aside className={`${isExpanded ? 'w-64' : 'w-16'} bg-[#1D1D1D] flex flex-col py-4 px-3 transition-all duration-300 ease-in-out overflow-hidden`}>
       {/* Logo */}
-      <Link href="/" className="mb-8 flex">
+      <Link href="/" className={`mb-8 flex ${isExpanded && 'flex-row'}`}>
         <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all hover:scale-105 p-2 flex-shrink-0">
           <Image
             src="/image.png"
@@ -106,6 +106,16 @@ export default function Sidebar({ accountingService }: SidebarProps) {
             unoptimized
           />
         </div>
+        {isExpanded && (
+          <Image
+            src="/logo_long_white.png"
+            alt="Logo Name"
+            width={350}
+            height={40}
+            className="mx-6 w-full h-full object-contain"
+            unoptimized
+          />
+        )}
       </Link>
 
       {/* Navigation */}

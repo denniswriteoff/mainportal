@@ -15,8 +15,8 @@ interface NetProfitTrendChartProps {
 
 export default function NetProfitTrendChart({ data, loading = false }: NetProfitTrendChartProps) {
   if (loading) {
-    return (
-      <div className="bg-[#1D1D1D] rounded-3xl p-8 shadow-2xl">
+      return (
+        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 shadow-lg">
         <div className="flex items-center justify-center h-72">
           <div className="text-sm text-gray-400">Loading chart data...</div>
         </div>
@@ -25,8 +25,8 @@ export default function NetProfitTrendChart({ data, loading = false }: NetProfit
   }
 
   if (!data || data.length === 0) {
-    return (
-      <div className="bg-[#1D1D1D] rounded-3xl p-8 shadow-2xl">
+      return (
+        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 shadow-lg">
         <div className="flex items-center justify-center h-72">
           <div className="text-sm text-gray-400">No trend data available</div>
         </div>
@@ -70,21 +70,21 @@ export default function NetProfitTrendChart({ data, loading = false }: NetProfit
   }
 
   return (
-    <div className="bg-[#1D1D1D] rounded-3xl p-8 shadow-2xl">
+    <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-blue-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
       <div className="mb-8">
         <div className="flex items-center space-x-3 mb-2">
-          <div className="bg-[#E8E7BB] p-2 rounded-full">
-            <div className="w-2 h-2 bg-[#1D1D1D] rounded-full"></div>
+          <div className="bg-[#3b82f6]/20 p-2.5 rounded-xl">
+            <div className="w-2 h-2 bg-[#3b82f6] rounded-full"></div>
           </div>
           <h3 className="text-2xl font-bold text-white">Net Profit Trend</h3>
         </div>
-        <p className="text-sm text-gray-400 ml-11">Monthly net profit over the past 12 months</p>
+        <p className="text-sm text-gray-400 ml-12">Monthly net profit over the selected period</p>
       </div>
       
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff15" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
             <XAxis 
               dataKey="month" 
               stroke="#6b7280"

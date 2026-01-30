@@ -239,7 +239,7 @@ function ChatPane({ id, initialMessages, onMessagesChange, onToggleRightPanel, r
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-[#E8E7BB] text-[#1D1D1D] overflow-hidden zoom-container">
+    <div className="flex-1 flex flex-col bg-gradient-to-br from-[#0f0f0f] via-[#1D1D1D] to-[#1a1a1a] text-white overflow-hidden zoom-container">
       <button
         onClick={() => onToggleRightPanel && onToggleRightPanel()}
         className={`fixed top-1/2 -translate-y-1/2 z-50 h-10 w-6 flex items-center justify-center rounded-l-md border border-r-0 border-[#1D1D1D]/20 bg-[#1D1D1D] text-[#E8E7BB] hover:bg-black transition-all duration-300 ease-in-out`}
@@ -253,7 +253,7 @@ function ChatPane({ id, initialMessages, onMessagesChange, onToggleRightPanel, r
       </button>
       
       {/* Mobile drawer button */}
-      <div className="md:hidden shrink-0 px-6 py-3 bg-gradient-to-b from-[#E8E7BB]/50 to-transparent">
+      <div className="md:hidden shrink-0 px-6 py-3 bg-gradient-to-b from-white/5 to-transparent">
         <Button
           variant="light"
           className="border border-gray-800 rounded-full text-sm text-gray-300 hover:text-white hover:bg-white/10"
@@ -270,8 +270,8 @@ function ChatPane({ id, initialMessages, onMessagesChange, onToggleRightPanel, r
               <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-gradient-to-br from-[#E8E7BB] to-[#d4d3a7] flex items-center justify-center shadow-lg">
                 <Brain className="w-8 h-8 text-[#1D1D1D]" />
               </div>
-              <h2 className="text-xl font-semibold text-[#1D1D1D]">Start Your Conversation</h2>
-              <p className="text-sm mt-2 text-[#1D1D1D]/70">Ask me anything about your QuickBooks Online finances. I'm here to help!</p>
+              <h2 className="text-xl font-semibold text-white">Start Your Conversation</h2>
+              <p className="text-sm mt-2 text-white/60">Ask me anything about your QuickBooks Online finances. I'm here to help!</p>
             </div>
           )}
           <div className="space-y-4">
@@ -618,7 +618,7 @@ function ChatPane({ id, initialMessages, onMessagesChange, onToggleRightPanel, r
         </div>
       </main>
 
-      <footer className="shrink-0 p-4 bg-gradient-to-t from-[#E8E7BB] via-[#E8E7BB]/95 to-transparent relative rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+      <footer className="shrink-0 p-4 bg-gradient-to-t from-white/5 via-white/3 to-transparent relative rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.2)]">
         {showScrollButton && (
           <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-30">
             <button
@@ -644,13 +644,13 @@ function ChatPane({ id, initialMessages, onMessagesChange, onToggleRightPanel, r
             className="relative"
           >
             <input
-              className="w-full h-12 rounded-full border border-[#1D1D1D]/20 bg-white text-[#1D1D1D] px-5 pr-44 no-zoom-input placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1D1D1D]/20 shadow-md"
+              className="w-full h-12 rounded-full border border-white/10 bg-white/5 text-white px-5 pr-44 no-zoom-input placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/20 shadow-md backdrop-blur-sm"
               value={input}
               placeholder="Ask about your QuickBooks Online data..."
               onChange={handleInputChange}
             />
             <div className="absolute right-24 top-1/2 -translate-y-1/2 flex items-center gap-2 h-9">
-              <Brain className="w-4 h-4 text-[#1D1D1D]/60" />
+              <Brain className="w-4 h-4 text-white/60" />
               <button
                 type="button"
                 onClick={(e) => {
@@ -804,8 +804,8 @@ export default function Chat() {
 
   if (status === 'loading') {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#E8E7BB] text-[#1D1D1D]">
-        <div className="text-sm text-[#6f6d4e]">Loading…</div>
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-[#0f0f0f] via-[#1D1D1D] to-[#1a1a1a] text-white">
+        <div className="text-sm text-white/60">Loading…</div>
       </div>
     );
   }
@@ -813,13 +813,13 @@ export default function Chat() {
   const firstName = session?.user?.name?.split(' ')[0] ?? 'there';
 
   return (
-    <div className="flex h-screen bg-[#E8E7BB] text-[#1D1D1D] overflow-hidden">
+    <div className="flex h-screen bg-gradient-to-br from-[#0f0f0f] via-[#1D1D1D] to-[#1a1a1a] text-white overflow-hidden">
       <Sidebar accountingService={session?.user?.accountingService} />
       
       {!session ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-4">
-            <div className="text-sm text-[#6f6d4e]">You are not signed in.</div>
+            <div className="text-sm text-white/60">You are not signed in.</div>
             <a
               href="/login"
               className="inline-flex h-10 items-center rounded-full bg-[#1D1D1D] px-6 text-[#E8E7BB] hover:opacity-90"
@@ -831,7 +831,7 @@ export default function Chat() {
       ) : (
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header - Original from main page */}
-          <div className="sticky top-0 z-10 bg-[#1D1D1D] px-6 py-4 backdrop-blur-sm shrink-0 shadow-lg shadow-black/10">
+          <div className="sticky top-0 z-10 bg-[#1D1D1D]/80 backdrop-blur-xl border-b border-white/5 px-6 py-5 shrink-0 shadow-lg shadow-black/10">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-semibold text-white">
@@ -885,7 +885,7 @@ export default function Chat() {
                               setMobileDrawerOpen(false);
                             }}
                           >
-                            <span className="truncate pr-2">{c.title || 'New Chat'}</span>
+                            <span className="truncate pr-2 ">{c.title || 'New Chat'}</span>
                             <button
                               aria-label="Delete conversation"
                               onClick={(e) => {
@@ -923,10 +923,10 @@ export default function Chat() {
                     {conversations.map((c) => (
                       <div
                         key={c.id}
-                        className={`group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm cursor-pointer transition-all duration-200 ${c.id === currentId ? 'bg-gradient-to-r from-gray-100 to-gray-50 dark:from-white/10 dark:to-white/5 shadow-sm' : 'hover:bg-gray-50/50 dark:hover:bg-white/5 hover:shadow-sm'}`}
+                        className={`group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm cursor-pointer transition-all duration-200 bg-gradient-to-b from-[#D9D8B0]/50 to-[#D9D8B0]/30 ${c.id === currentId ? '' : 'hover:bg-gray-50/50 dark:hover:bg-white/5 hover:shadow-sm'}`}
                         onClick={() => setCurrentId(c.id)}
                       >
-                        <span className="truncate pr-2">{c.title || 'New Chat'}</span>
+                        <span className="truncate pr-2 text-gray-600">{c.title || 'New Chat'}</span>
                         <button
                           aria-label="Delete conversation"
                           onClick={(e) => {
