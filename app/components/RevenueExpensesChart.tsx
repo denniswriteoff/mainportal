@@ -1,6 +1,7 @@
 'use client'
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { useState } from 'react'
 
 interface TrendData {
   month: string
@@ -55,7 +56,7 @@ export default function RevenueExpensesChart({ data, loading = false }: RevenueE
                 style={{ backgroundColor: entry.color }}
               />
               <span className="text-sm text-gray-600">
-                {entry.dataKey === 'revenue' ? 'Revenue' : 'Expenses'}: {formatCurrency(entry.value)}
+                {labelForKey(entry.dataKey)}: {formatCurrency(entry.value)}
               </span>
             </div>
           ))}
@@ -63,6 +64,48 @@ export default function RevenueExpensesChart({ data, loading = false }: RevenueE
       )
     }
     return null
+  }
+
+  // Initialize hidden keys: default series off if they have no data
+  const initHiddenKeys = () => {
+    const first = data[0] || {} as any
+    const hidden: Record<string, boolean> = {}
+    const keysToCheck = ['revenue', 'expenses', 'cogs', 'subcontractors', 'ownerRelated', 'otherExpenses']
+    
+    for (const key of keysToCheck) {
+      if (typeof first[key] === 'number' && first[key] === 0) {
+        hidden[key] = true
+      }
+    }
+    return hidden
+  }
+  const [hiddenKeys, setHiddenKeys] = useState<Record<string, boolean>>(initHiddenKeys())
+
+  const labelForKey = (key: string) => {
+    if (key === 'revenue') return 'Revenue'
+    if (key === 'expenses') return 'Expenses'
+    if (key === 'cogs') return 'Cost of Goods Sold'
+    if (key === 'subcontractors') return 'Subcontractors'
+    if (key === 'ownerRelated') return 'Owner Related'
+    if (key === 'otherExpenses') return 'Other Expenses'
+    // Fallback: prettify
+    return key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())
+  }
+
+  const getColorForKey = (key: string): string => {
+    if (key === 'revenue') return '#10b981'
+    if (key === 'expenses') return '#ef4444'
+    const palette = ['#f59e0b', '#6366f1', '#ec4899', '#06b6d4']
+    const allKeys = (() => {
+      const first = data[0] || {} as any
+      return Object.keys(first).filter(k => k !== 'month' && k !== 'revenue')
+    })()
+    const idx = allKeys.indexOf(key)
+    return palette[idx % palette.length]
+  }
+
+  const toggleKey = (key: string) => {
+    setHiddenKeys((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
   return (
@@ -96,30 +139,87 @@ export default function RevenueExpensesChart({ data, loading = false }: RevenueE
               axisLine={false}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Legend 
-              iconType="circle"
-              wrapperStyle={{ paddingTop: '20px' }}
-            />
-            <Line 
-              type="monotone" 
-              dataKey="revenue" 
-              stroke="#10b981" 
-              strokeWidth={3}
-              dot={{ fill: '#10b981', strokeWidth: 2, r: 5 }}
-              activeDot={{ r: 7, stroke: '#10b981', strokeWidth: 2 }}
-              name="Revenue"
-            />
-            <Line 
-              type="monotone" 
-              dataKey="expenses" 
-              stroke="#ef4444" 
-              strokeWidth={3}
-              dot={{ fill: '#ef4444', strokeWidth: 2, r: 5 }}
-              activeDot={{ r: 7, stroke: '#ef4444', strokeWidth: 2 }}
-              name="Expenses"
-            />
+            {/* Revenue always rendered */}
+            {!hiddenKeys['revenue'] && (
+              <Line 
+                type="monotone" 
+                dataKey="revenue" 
+                stroke="#10b981" 
+                strokeWidth={3}
+                dot={{ fill: '#10b981', strokeWidth: 2, r: 5 }}
+                activeDot={{ r: 7, stroke: '#10b981', strokeWidth: 2 }}
+                name={labelForKey('revenue')}
+              />
+            )}
+
+            {/* Dynamically render expense series (detect keys from data) */}
+            {(() => {
+              const first = data[0] || {} as any
+              const keys = Object.keys(first).filter(k => k !== 'month' && k !== 'revenue')
+              return keys.map((key, idx) => {
+                const color = getColorForKey(key)
+                return !hiddenKeys[key] ? (
+                  <Line
+                    key={key}
+                    type="monotone"
+                    dataKey={key}
+                    stroke={color}
+                    strokeWidth={2}
+                    dot={{ fill: color, strokeWidth: 1, r: 4 }}
+                    activeDot={{ r: 6 }}
+                    name={labelForKey(key)}
+                  />
+                ) : null
+              })
+            })()}
           </LineChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Custom Interactive Legend */}
+      <div className="mt-8">
+        <div className="flex flex-wrap gap-3">
+          {/* Revenue */}
+          <button
+            onClick={() => toggleKey('revenue')}
+            className="flex items-center space-x-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/10"
+          >
+            <div
+              className="w-3 h-3 rounded-full transition-opacity"
+              style={{
+                backgroundColor: getColorForKey('revenue'),
+                opacity: hiddenKeys['revenue'] ? 0.4 : 1,
+              }}
+            />
+            <span className={`text-sm font-medium transition-opacity ${hiddenKeys['revenue'] ? 'text-gray-500' : 'text-gray-300'}`}>
+              {labelForKey('revenue')}
+            </span>
+          </button>
+
+          {/* Expense categories */}
+          {(() => {
+            const first = data[0] || {} as any
+            const keys = Object.keys(first).filter(k => k !== 'month' && k !== 'revenue')
+            return keys.map((key) => (
+              <button
+                key={key}
+                onClick={() => toggleKey(key)}
+                className="flex items-center space-x-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/10"
+              >
+                <div
+                  className="w-3 h-3 rounded-full transition-opacity"
+                  style={{
+                    backgroundColor: getColorForKey(key),
+                    opacity: hiddenKeys[key] ? 0.4 : 1,
+                  }}
+                />
+                <span className={`text-sm font-medium transition-opacity ${hiddenKeys[key] ? 'text-gray-500' : 'text-gray-300'}`}>
+                  {labelForKey(key)}
+                </span>
+              </button>
+            ))
+          })()}
+        </div>
       </div>
     </div>
   )

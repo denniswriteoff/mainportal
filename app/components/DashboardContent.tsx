@@ -34,7 +34,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
   const [loading, setLoading] = useState(true);
   const [loadingMonthly, setLoadingMonthly] = useState(true);
   const [loadingPrevious, setLoadingPrevious] = useState(true);
-  const [timeframe, setTimeframe] = useState<'YEAR' | 'MONTH' | 'CUSTOM'>('YEAR');
+  const [timeframe, setTimeframe] = useState<'YEAR' | 'MONTH' | 'CUSTOM' | 'L12'>('YEAR');
   const [customFromDate, setCustomFromDate] = useState<string>('');
   const [customToDate, setCustomToDate] = useState<string>('');
   const [sortField, setSortField] = useState<'name' | 'value' | 'percentage'>('value');
@@ -77,10 +77,39 @@ export default function DashboardContent({ session: initialSession }: DashboardC
       setLoadingMonthly(true);
       setLoadingPrevious(true);
       
+      // Compute from/to dates for stats and monthly endpoints
+      let fromDateStr: string | undefined;
+      let toDateStr: string | undefined;
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+
+      if (timeframe === 'CUSTOM') {
+        if (!customFromDate || !customToDate) {
+          return;
+        }
+        fromDateStr = customFromDate;
+        toDateStr = customToDate;
+      } else if (timeframe === 'YEAR') {
+        fromDateStr = `${currentYear}-01-01`;
+        toDateStr = `${currentYear}-12-31`;
+      } else if (timeframe === 'MONTH') {
+        const monthStart = new Date(currentYear, currentMonth, 1);
+        const monthEnd = new Date(currentYear, currentMonth + 1, 0);
+        fromDateStr = monthStart.toISOString().split('T')[0];
+        toDateStr = monthEnd.toISOString().split('T')[0];
+      } else if (timeframe === 'L12') {
+        // Last 12 months (including current month)
+        const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        fromDateStr = start.toISOString().split('T')[0];
+        toDateStr = end.toISOString().split('T')[0];
+      }
+
       // Build query string with optional date parameters
       let statsUrl = `/api/dashboard/stats?timeframe=${timeframe}`;
-      if (timeframe === 'CUSTOM' && customFromDate && customToDate) {
-        statsUrl += `&fromDate=${customFromDate}&toDate=${customToDate}`;
+      if (fromDateStr && toDateStr) {
+        statsUrl += `&fromDate=${fromDateStr}&toDate=${toDateStr}`;
       }
       
       // Fetch main stats (fast - KPIs and expense breakdown)
@@ -97,20 +126,19 @@ export default function DashboardContent({ session: initialSession }: DashboardC
       }
       setLoading(false);
 
-      // Fetch monthly trend data (slower - 12 API calls with rate limiting)
-      // Only fetch for YEAR timeframe, skip for CUSTOM
-      if (timeframe === 'YEAR') {
-        const currentYear = new Date().getFullYear();
-        const monthlyResponse = await fetch(`/api/dashboard/monthly?year=${currentYear}`);
+      // Fetch monthly trend data (slower - multiple API calls with rate limiting)
+      if (fromDateStr && toDateStr) {
+        const monthlyResponse = await fetch(`/api/dashboard/monthly?fromDate=${fromDateStr}&toDate=${toDateStr}`);
         if (monthlyResponse.ok) {
           const monthlyData = await monthlyResponse.json();
           setDashboardData((prev: any) => ({ 
             ...prev, 
             trendData: monthlyData.trendData || [],
           }));
+        } else {
+          setDashboardData((prev: any) => ({ ...prev, trendData: [] }));
         }
       } else {
-        // For CUSTOM and MONTH, set empty trend data
         setDashboardData((prev: any) => ({ 
           ...prev, 
           trendData: [],
@@ -363,6 +391,29 @@ export default function DashboardContent({ session: initialSession }: DashboardC
     return `${value.toFixed(1)}%`;
   };
 
+  // Cash Runway calculation (months) = cashBalance / lastMonthExpenses
+  const cashRunwayMonths = (() => {
+    const cash = dashboardData?.kpis?.cashBalance || 0;
+    const trend = dashboardData?.trendData || [];
+    if (!trend || trend.length === 0) return null;
+    const last = trend[trend.length - 1];
+    if (!last) return null;
+    // if explicit `expenses` field exists use it, otherwise sum other numeric keys
+    let lastMonthExpenses = 0;
+    if (typeof last.expenses === 'number') {
+      lastMonthExpenses = last.expenses;
+    } else {
+      for (const k of Object.keys(last)) {
+        if (k === 'month' || k === 'revenue') continue;
+        const v = Number((last as any)[k]);
+        if (!isNaN(v)) lastMonthExpenses += v;
+      }
+    }
+
+    if (!lastMonthExpenses || lastMonthExpenses === 0) return null;
+    return cash / lastMonthExpenses;
+  })();
+
   const handleExpenseClick = (expenseName: string) => {
     setSelectedExpense(expenseName);
     setIsModalOpen(true);
@@ -497,6 +548,22 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                     YTD
                   </button>
                   <button
+                    onClick={() => {
+                      setTimeframe('L12');
+                      if (timeframe === 'CUSTOM') {
+                        setCustomFromDate('');
+                        setCustomToDate('');
+                      }
+                    }}
+                    className={`px-5 py-2 text-sm rounded-full font-medium transition-all ${
+                      timeframe === 'L12'
+                        ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-md'
+                        : 'text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    L12M
+                  </button>
+                  <button
                     onClick={() => setTimeframe('CUSTOM')}
                     className={`px-5 py-2 text-sm rounded-full font-medium transition-all ${
                       timeframe === 'CUSTOM'
@@ -595,27 +662,48 @@ export default function DashboardContent({ session: initialSession }: DashboardC
               </div>
             </div>
 
-            {/* Net Margin */}
-            <div className="bg-[#1D1D1D] rounded-full px-8 py-6 shadow-2xl">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="bg-[#E8E7BB] p-4 rounded-full">
-                    <BarChart3 className="w-6 h-6 text-[#1D1D1D]" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-400 mb-1 font-medium">Net Margin</p>
-                    <p className="text-3xl font-bold text-white">{formatPercentage(dashboardData?.kpis?.netMargin || 0)}</p>
+            {/* Net Margin & Cash Runway - Side by Side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Net Margin */}
+              <div className="bg-gradient-to-br from-[#1D1D1D] to-[#2a2a2a] rounded-3xl p-6 shadow-2xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-[#E8E7BB] p-4 rounded-full">
+                      <BarChart3 className="w-6 h-6 text-[#1D1D1D]" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400 mb-1 font-medium">Net Margin</p>
+                      <p className="text-3xl font-bold text-white">{formatPercentage(dashboardData?.kpis?.netMargin || 0)}</p>
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="mt-4 flex items-center space-x-2">
                   <p className="text-xs text-gray-400 uppercase tracking-wider">Performance</p>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <div className="h-2 w-32 bg-white/10 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-[#E8E7BB] to-green-400 rounded-full"
-                        style={{ width: `${Math.min(Math.max((dashboardData?.kpis?.netMargin || 0), 0), 100)}%` }}
-                      ></div>
+                  <div className="h-2 flex-1 bg-white/10 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-[#E8E7BB] to-green-400"
+                      style={{ width: `${Math.min(Math.max((dashboardData?.kpis?.netMargin || 0), 0), 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cash Runway */}
+              <div className="bg-gradient-to-br from-[#1D1D1D] to-[#2a2a2a] rounded-3xl p-6 shadow-2xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-[#E8E7BB] p-3 rounded-full">
+                      <Wallet className="w-5 h-5 text-[#1D1D1D]" />
                     </div>
+                    <div>
+                      <p className="text-sm text-gray-400 mb-1 font-medium">Cash Runway</p>
+                      <p className="text-2xl font-bold text-white">{cashRunwayMonths ? `${cashRunwayMonths.toFixed(1)} months` : '—'}</p>
+                      <p className="text-sm text-gray-400 mt-1">Based on last month's expenses</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-400">Cash Balance</p>
+                    <p className="text-lg font-bold text-white">{formatCurrency(dashboardData?.kpis?.cashBalance || 0)}</p>
                   </div>
                 </div>
               </div>

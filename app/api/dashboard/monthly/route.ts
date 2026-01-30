@@ -12,7 +12,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const year = parseInt(searchParams.get("year") || new Date().getFullYear().toString());
+    const yearParam = searchParams.get("year");
+    const fromDateParam = searchParams.get("fromDate");
+    const toDateParam = searchParams.get("toDate");
+    const year = yearParam ? parseInt(yearParam) : undefined;
 
     const accountingService = session.user.accountingService;
 
@@ -43,9 +46,9 @@ export async function GET(request: NextRequest) {
         oauthClient.setToken(token);
         const realmId = encodeURIComponent(token.realmId);
 
-        const trendData = await generateQboMonthlyTrendData(oauthClient, realmId, year, base);
+        const trendData = await generateQboMonthlyTrendData(oauthClient, realmId, year, base, fromDateParam, toDateParam);
 
-        return NextResponse.json({ trendData, year });
+        return NextResponse.json({ trendData, year, fromDate: fromDateParam, toDate: toDateParam });
       } catch (error) {
         console.error("QBO monthly data error:", error);
         return NextResponse.json({ 
@@ -55,9 +58,9 @@ export async function GET(request: NextRequest) {
         });
       }
     } else if (accountingService === "XERO") {
-      const trendData = await generateXeroMonthlyTrendData(session.user.id, year);
+      const trendData = await generateXeroMonthlyTrendData(session.user.id, year, fromDateParam, toDateParam);
       
-      return NextResponse.json({ trendData, year });
+      return NextResponse.json({ trendData, year, fromDate: fromDateParam, toDate: toDateParam });
     }
 
     return NextResponse.json({ trendData: [], year });
@@ -118,19 +121,112 @@ function extractQboProfitLossSummary(report: any): {
   return result;
 }
 
+// Extract grouped expense categories (best-effort heuristic): cogs, subcontractors, ownerRelated, otherExpenses
+function extractQboExpenseCategories(report: any): { cogs: number; subcontractors: number; ownerRelated: number; otherExpenses: number } {
+  let cogs = 0;
+  let subcontractors = 0;
+  let ownerRelated = 0;
+  let otherExpenses = 0;
+
+  if (!report?.Rows?.Row) return { cogs, subcontractors, ownerRelated, otherExpenses };
+
+  const rows = Array.isArray(report.Rows.Row) ? report.Rows.Row : [report.Rows.Row];
+
+  function findExpenseSections(rows: any[]): any[] {
+    const sections: any[] = [];
+    for (const row of rows) {
+      if (row.Header && row.Header.ColData) {
+        const headerValue = row.Header.ColData[0]?.value;
+        if (
+          headerValue === "EXPENSES" ||
+          headerValue === "OTHER EXPENSES" ||
+          headerValue === "COST OF GOODS SOLD" ||
+          headerValue === "COST OF SALES" ||
+          headerValue === "COGS"
+        ) {
+          sections.push(row);
+        }
+      }
+
+      let nestedRows = null;
+      if (Array.isArray(row.Rows)) {
+        nestedRows = row.Rows;
+      } else if (row.Rows && row.Rows.Row) {
+        nestedRows = Array.isArray(row.Rows.Row) ? row.Rows.Row : [row.Rows.Row];
+      }
+
+      if (nestedRows) {
+        sections.push(...findExpenseSections(nestedRows));
+      }
+    }
+    return sections;
+  }
+
+  const expenseSections = findExpenseSections(rows);
+
+  for (const section of expenseSections) {
+    if (section?.Rows?.Row) {
+      const expenseRows = Array.isArray(section.Rows.Row) ? section.Rows.Row : [section.Rows.Row];
+      for (const row of expenseRows) {
+        if (row.type === "Data" && row.ColData) {
+          const name = (row.ColData[0]?.value || "").toString();
+          const valueRaw = row.ColData[1]?.value || "0";
+          const numericValue = typeof valueRaw === 'string' ? parseFloat(valueRaw.replace(/,/g, '')) : valueRaw;
+          if (!isNaN(numericValue) && numericValue > 0) {
+            const lname = name.toLowerCase();
+            if (lname.includes('subcontract')) {
+              subcontractors += Math.abs(numericValue);
+            } else if (lname.includes('owner')) {
+              ownerRelated += Math.abs(numericValue);
+            } else if (lname.includes('cost of goods') || lname.includes('cost of sales') || lname === 'cogs') {
+              cogs += Math.abs(numericValue);
+            } else {
+              otherExpenses += Math.abs(numericValue);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return { cogs, subcontractors, ownerRelated, otherExpenses };
+}
+
 async function generateQboMonthlyTrendData(
   oauthClient: any,
   realmId: string,
-  year: number,
-  base: string
-): Promise<Array<{ month: string; revenue: number; expenses: number }>> {
+  year: number | undefined,
+  base: string,
+  fromDate?: string | null,
+  toDate?: string | null
+): Promise<Array<{ month: string; revenue: number; expenses: number; cogs?: number; subcontractors?: number; ownerRelated?: number; otherExpenses?: number }>> {
   const trendData = [];
 
   try {
+    // Build month ranges based on fromDate/toDate or year
+    const months: Array<{ start: Date; end: Date }> = [];
+    if (fromDate && toDate) {
+      const start = new Date(fromDate + 'T00:00:00');
+      const end = new Date(toDate + 'T00:00:00');
+      const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+      while (cursor <= end) {
+        const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+        const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+        months.push({ start: monthStart, end: monthEnd });
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+    } else if (typeof year === 'number') {
+      for (let m = 0; m < 12; m++) {
+        const monthStart = new Date(year, m, 1);
+        const monthEnd = new Date(year, m + 1, 0);
+        months.push({ start: monthStart, end: monthEnd });
+      }
+    }
+
     // Process months sequentially with delays to avoid rate limiting
-    for (let month = 1; month <= 12; month++) {
-      const monthStart = new Date(year, month - 1, 1);
-      const monthEnd = new Date(year, month, 0);
+    for (let mi = 0; mi < months.length; mi++) {
+      const monthStart = months[mi].start;
+      const monthEnd = months[mi].end;
       const fromDate = monthStart.toISOString().split("T")[0];
       const toDate = monthEnd.toISOString().split("T")[0];
 
@@ -146,16 +242,21 @@ async function generateQboMonthlyTrendData(
         const profitLoss = response.json || JSON.parse(response.body || "{}");
         const { revenue, operatingExpenses, costOfGoodsSold, otherExpenses } = extractQboProfitLossSummary(profitLoss);
         const expenses = operatingExpenses + costOfGoodsSold + otherExpenses;
+        const categories = extractQboExpenseCategories(profitLoss);
 
         trendData.push({
           month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
           revenue: Math.abs(revenue),
           expenses: Math.abs(expenses),
+          cogs: Math.abs(categories.cogs || 0),
+          subcontractors: Math.abs(categories.subcontractors || 0),
+          ownerRelated: Math.abs(categories.ownerRelated || 0),
+          otherExpenses: Math.abs(categories.otherExpenses || 0),
         });
       } catch (error: any) {
         // Handle rate limiting with retry
         if (error?.response?.status === 429) {
-          console.log(`Rate limited for month ${month}, waiting before retry...`);
+          console.log(`Rate limited for ${monthStart.toLocaleDateString('en-US', { month: 'short' })}, waiting before retry...`);
           const retryAfter = error.response.headers?.["retry-after"] || "1";
           const waitTime = parseInt(retryAfter) * 1000;
           await new Promise((resolve) => setTimeout(resolve, waitTime));
@@ -171,32 +272,45 @@ async function generateQboMonthlyTrendData(
             const retryProfitLoss = retryResponse.json || JSON.parse(retryResponse.body || "{}");
             const { revenue, operatingExpenses, costOfGoodsSold, otherExpenses } = extractQboProfitLossSummary(retryProfitLoss);
             const expenses = operatingExpenses + costOfGoodsSold + otherExpenses;
+            const categories = extractQboExpenseCategories(retryProfitLoss);
 
             trendData.push({
               month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
               revenue: Math.abs(revenue),
               expenses: Math.abs(expenses),
+              cogs: Math.abs(categories.cogs || 0),
+              subcontractors: Math.abs(categories.subcontractors || 0),
+              ownerRelated: Math.abs(categories.ownerRelated || 0),
+              otherExpenses: Math.abs(categories.otherExpenses || 0),
             });
           } catch (retryError) {
-            console.error(`Failed retry for month ${month}:`, retryError);
+            console.error(`Failed retry for ${monthStart.toLocaleDateString('en-US', { month: 'short' })}:`, retryError);
             trendData.push({
               month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
               revenue: 0,
               expenses: 0,
+              cogs: 0,
+              subcontractors: 0,
+              ownerRelated: 0,
+              otherExpenses: 0,
             });
           }
         } else {
-          console.error(`Error fetching data for month ${month}:`, error);
+          console.error(`Error fetching data for ${monthStart.toLocaleDateString('en-US', { month: 'short' })}:`, error);
           trendData.push({
             month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
             revenue: 0,
             expenses: 0,
+            cogs: 0,
+            subcontractors: 0,
+            ownerRelated: 0,
+            otherExpenses: 0,
           });
         }
       }
 
       // Add delay between requests to stay under rate limit (~8 requests per second)
-      if (month < 12) {
+      if (mi < months.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 125));
       }
     }
@@ -253,44 +367,68 @@ function extractTotalOperatingExpenses(report: any): number {
 
 async function generateXeroMonthlyTrendData(
   userId: string,
-  year: number
-): Promise<Array<{ month: string; revenue: number; expenses: number }>> {
+  year?: number | undefined,
+  fromDateParam?: string | null,
+  toDateParam?: string | null
+): Promise<Array<{ month: string; revenue: number; expenses: number; cogs?: number; subcontractors?: number; ownerRelated?: number; otherExpenses?: number }>> {
   const trendData = [];
 
   try {
-    // Get data for each month of the year
-    for (let month = 1; month <= 12; month++) {
-      const monthStart = new Date(year, month - 1, 1);
-      const monthEnd = new Date(year, month, 0);
-      const fromDate = monthStart.toISOString().split("T")[0];
-      const toDate = monthEnd.toISOString().split("T")[0];
+    const months: Array<{ start: Date; end: Date }> = [];
+    if (fromDateParam && toDateParam) {
+      const start = new Date(fromDateParam + 'T00:00:00');
+      const end = new Date(toDateParam + 'T00:00:00');
+      const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+      while (cursor <= end) {
+        const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+        const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+        months.push({ start: monthStart, end: monthEnd });
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+    } else if (typeof year === 'number') {
+      for (let m = 0; m < 12; m++) {
+        const monthStart = new Date(year, m, 1);
+        const monthEnd = new Date(year, m + 1, 0);
+        months.push({ start: monthStart, end: monthEnd });
+      }
+    }
+
+    for (let mi = 0; mi < months.length; mi++) {
+      const monthStart = months[mi].start;
+      const monthEnd = months[mi].end;
+      const fromDate = monthStart.toISOString().split('T')[0];
+      const toDate = monthEnd.toISOString().split('T')[0];
 
       try {
-        const profitLoss = await getXeroProfitAndLoss(userId, {
-          fromDate,
-          toDate,
-        });
+        const profitLoss = await getXeroProfitAndLoss(userId, { fromDate, toDate });
 
-        const revenue = extractAccountValue(profitLoss, ["Total Income"]);
+        const revenue = extractAccountValue(profitLoss, ['Total Income']);
         const expenses = extractTotalOperatingExpenses(profitLoss);
 
         trendData.push({
-          month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
+          month: monthStart.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
           revenue: Math.abs(revenue),
           expenses: Math.abs(expenses),
+          cogs: Math.abs(extractAccountValue(profitLoss, ['Total Cost of Sales']) || 0),
+          subcontractors: 0,
+          ownerRelated: 0,
+          otherExpenses: Math.abs(expenses - (extractAccountValue(profitLoss, ['Total Cost of Sales']) || 0)),
         });
       } catch (error) {
-        console.error(`Error fetching Xero data for ${month}/${year}:`, error);
-        // Add zero values for months with errors
+        console.error(`Error fetching Xero data for ${monthStart.getMonth() + 1}/${monthStart.getFullYear()}:`, error);
         trendData.push({
-          month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
+          month: monthStart.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
           revenue: 0,
           expenses: 0,
+          cogs: 0,
+          subcontractors: 0,
+          ownerRelated: 0,
+          otherExpenses: 0,
         });
       }
     }
   } catch (error) {
-    console.error("Xero trend data generation error:", error);
+    console.error('Xero trend data generation error:', error);
   }
 
   return trendData;
