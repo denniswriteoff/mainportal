@@ -435,7 +435,6 @@ export default function DashboardContent({ session: initialSession }: DashboardC
             <h1 className="text-3xl font-bold text-white tracking-tight">
               Welcome back, <span className="text-[#E8E7BB]">{firstName}</span>
             </h1>
-            <p className="text-sm text-gray-400 mt-1">Monitor your business financial health</p>
           </div>
           <div className="flex items-center gap-3">
             {!currentSession.user.accountingService && (
@@ -614,7 +613,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
               <div className="flex items-center justify-center min-h-[400px]">
                 <div className="flex flex-col items-center space-y-4">
                   <Spinner size="lg" color="default" className="text-[#1D1D1D]" />
-                  <p className="text-sm text-[#1D1D1D]/70">Loading your dashboard...</p>
+                  <p className="text-sm text-[#e8e7bb]/70">Loading your dashboard...</p>
                 </div>
               </div>
             ) : (
@@ -707,12 +706,12 @@ export default function DashboardContent({ session: initialSession }: DashboardC
             </div>
 
             {/* Revenue vs Expenses Trend Chart */}
-            {timeframe !== 'CUSTOM' && (
+            {(timeframe !== 'CUSTOM' || (timeframe === 'CUSTOM' && customFromDate && customToDate)) && (
               <RevenueExpensesChart data={dashboardData?.trendData || []} loading={loadingMonthly} />
             )}
 
             {/* Net Profit Trend Chart */}
-            {timeframe !== 'CUSTOM' && (
+            {(timeframe !== 'CUSTOM' || (timeframe === 'CUSTOM' && customFromDate && customToDate)) && (
               <NetProfitTrendChart data={dashboardData?.trendData || []} loading={loadingMonthly} />
             )}
 
