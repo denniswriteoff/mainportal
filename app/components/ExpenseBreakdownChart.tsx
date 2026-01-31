@@ -85,6 +85,21 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
     }
   }
 
+  // visibility toggles for each expense category
+  const keyFromName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '_')
+  const names = data.map(d => d.name)
+  const initHidden: Record<string, boolean> = {}
+  for (const n of names) initHidden[keyFromName(n)] = false
+  const [hiddenKeys, setHiddenKeys] = useState<Record<string, boolean>>(initHidden)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
+  const toggleHidden = (name: string) => {
+    const k = keyFromName(name)
+    setHiddenKeys(prev => ({ ...prev, [k]: !prev[k] }))
+  }
+
+  const visibleData = data.filter(d => !hiddenKeys[keyFromName(d.name)])
+
   const CustomLegend = ({ payload }: any) => {
     return (
       <div className="flex flex-wrap gap-2 mt-4">
@@ -126,7 +141,7 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={data}
+              data={visibleData}
               cx="50%"
               cy="45%"
               innerRadius={70}
@@ -148,6 +163,41 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
             <Legend content={<CustomLegend />} />
           </PieChart>
         </ResponsiveContainer>
+      </div>
+      {/* Breakdown toggles drawer */}
+      <div className="mt-6 pt-6 border-t border-white/10">
+        <div className="flex justify-center">
+          <button
+            onClick={() => setDrawerOpen(!drawerOpen)}
+            className="text-sm text-gray-400 hover:text-white px-3 py-2 rounded-md transition-all"
+          >
+            {drawerOpen ? 'Hide breakdown toggles' : 'Show breakdown toggles'}
+          </button>
+        </div>
+
+        {drawerOpen && (
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {data.map((d, idx) => {
+              const k = keyFromName(d.name)
+              return (
+                <label key={k} className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20">
+                  <input
+                    type="checkbox"
+                    checked={!hiddenKeys[k]}
+                    onChange={() => toggleHidden(d.name)}
+                    className="w-4 h-4"
+                  />
+                  <span
+                    className={`text-xs font-medium ${hiddenKeys[k] ? 'text-gray-500' : 'text-gray-300'} cursor-pointer`}
+                    onClick={() => onExpenseClick && onExpenseClick(d.name)}
+                  >
+                    {d.name}
+                  </span>
+                </label>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

@@ -290,7 +290,6 @@ function extractExpenseBreakdown(
       percentage: totalExpenses > 0 ? (expense.value / totalExpenses) * 100 : 0,
     }))
     .sort((a, b) => b.value - a.value)
-    .slice(0, 10); // Top 10 expenses
 }
 
 // Extract expense breakdown from QBO Profit & Loss report
@@ -370,7 +369,6 @@ function extractQboExpenseBreakdown(report: any): Array<{ name: string; value: n
       percentage: totalExpenses > 0 ? (expense.value / totalExpenses) * 100 : 0,
     }))
     .sort((a, b) => b.value - a.value)
-    .slice(0, 10); // Top 10 expenses
 }
 
 // Xero Helper Functions
