@@ -394,17 +394,27 @@ export default function DashboardContent({ session: initialSession }: DashboardC
   // Cash Runway calculation (months) = cashBalance / lastMonthExpenses
   const cashRunwayMonths = (() => {
     const cash = dashboardData?.kpis?.cashBalance || 0;
+    const apiRunway = dashboardData?.kpis?.cashRunway
+    if (typeof apiRunway === 'number') return apiRunway
+
     const trend = dashboardData?.trendData || [];
     if (!trend || trend.length === 0) return null;
-    const last = trend[trend.length - 1];
+
+    const now = new Date();
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthName = lastMonthDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+
+    // Try to find the exact last month (respecting year rollovers)
+    let last = trend.find((r: any) => r.month === lastMonthName) || trend[trend.length - 1];
     if (!last) return null;
+
     // if explicit `expenses` field exists use it, otherwise sum other numeric keys
     let lastMonthExpenses = 0;
     if (typeof last.expenses === 'number') {
       lastMonthExpenses = last.expenses;
     } else {
       for (const k of Object.keys(last)) {
-        if (k === 'month' || k === 'revenue') continue;
+        if (k === 'month' || k === 'revenue' || k === 'expenseBreakdown') continue;
         const v = Number((last as any)[k]);
         if (!isNaN(v)) lastMonthExpenses += v;
       }

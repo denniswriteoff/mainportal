@@ -118,23 +118,39 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
   const labelForKey = (key: string) => {
     if (key === 'revenue') return 'Revenue'
     if (key === 'expenses') return 'Expenses'
-
     const nk = normalize(key)
 
-    // try to map using expenseBreakdown prop
-    if (expenseBreakdown && expenseBreakdown.length) {
-      for (const item of expenseBreakdown) {
+    // try to map using derivedBreakdown (per-month) first
+    if (derivedBreakdown && derivedBreakdown.length) {
+      for (const item of derivedBreakdown) {
         const nn = normalize(item.name)
         if (!nn) continue
-        // match if normalized strings contain each other (handles plurals)
         if (nn.includes(nk) || nk.includes(nn) || nn.includes(nk.replace(/s$/, '')) || nk.includes(nn.replace(/s$/, ''))) {
-          return item.name
+          return prettifyLabel(item.name)
         }
       }
     }
 
-    // Fallback: prettify
-    return key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())
+    // then try top-level prop fallback
+    if (expenseBreakdown && expenseBreakdown.length) {
+      for (const item of expenseBreakdown) {
+        const nn = normalize(item.name)
+        if (!nn) continue
+        if (nn.includes(nk) || nk.includes(nn) || nn.includes(nk.replace(/s$/, '')) || nk.includes(nn.replace(/s$/, ''))) {
+          return prettifyLabel(item.name)
+        }
+      }
+    }
+
+    // Fallback: prettify the key itself
+    return prettifyLabel(key)
+  }
+
+  function prettifyLabel(s: string) {
+    if (!s) return s
+    // replace underscores/hyphens and camelCase boundaries with spaces
+    const replaced = s.replace(/[_-]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2')
+    return replaced.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
   }
 
   // Precompute color assignments for breakdown keys to avoid runtime computation in render
@@ -187,6 +203,8 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
       const k = keyFromName(it.name)
       newRow[k] = Math.abs(it.value || 0)
     }
+    // remove the raw expenseBreakdown array so it doesn't create an invalid series
+    if (newRow.expenseBreakdown !== undefined) delete newRow.expenseBreakdown
     return newRow
   })
 
@@ -241,7 +259,7 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
             {/* Dynamically render expense series (detect keys from data) */}
             {(() => {
               const first = augmentedData[0] || {} as any
-              const keys = Object.keys(first).filter(k => k !== 'month' && k !== 'revenue')
+              const keys = Object.keys(first).filter(k => k !== 'month' && k !== 'revenue' && k !== 'expenseBreakdown')
               return keys.map((key, idx) => {
                 const color = getColorForKey(key)
                 return !hiddenKeys[key] ? (
