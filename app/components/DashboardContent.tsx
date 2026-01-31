@@ -180,10 +180,6 @@ export default function DashboardContent({ session: initialSession }: DashboardC
   }, [timeframe, fetchDashboardData]);
 
   useEffect(() => {
-    console.log('timeframe', timeframe);
-  }, [timeframe]);
-
-  useEffect(() => {
     console.log(dashboardData);
   }, [dashboardData]);
 

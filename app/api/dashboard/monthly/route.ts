@@ -118,7 +118,7 @@ async function generateQboMonthlyTrendData(
   base: string,
   fromDate?: string | null,
   toDate?: string | null
-): Promise<Array<{ month: string; revenue: number; expenses: number }>> {
+): Promise<Array<{ month: string; revenue: number; expenses: number; expenseBreakdown?: Array<{ name: string; value: number; percentage: number }> }>> {
   const trendData = [];
 
   try {
@@ -161,11 +161,13 @@ async function generateQboMonthlyTrendData(
         const profitLoss = response.json || JSON.parse(response.body || "{}");
         const { revenue, operatingExpenses } = extractQboProfitLossSummary(profitLoss);
         const expenses = operatingExpenses;
+        const expenseBreakdown = extractQboExpenseBreakdown(profitLoss);
 
         trendData.push({
           month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
           revenue: Math.abs(revenue),
           expenses: Math.abs(expenses),
+          expenseBreakdown,
         });
       } catch (error: any) {
         // Handle rate limiting with retry
@@ -186,11 +188,13 @@ async function generateQboMonthlyTrendData(
             const retryProfitLoss = retryResponse.json || JSON.parse(retryResponse.body || "{}");
             const { revenue, operatingExpenses } = extractQboProfitLossSummary(retryProfitLoss);
             const expenses = operatingExpenses;
+            const expenseBreakdown = extractQboExpenseBreakdown(retryProfitLoss);
 
             trendData.push({
               month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
               revenue: Math.abs(revenue),
               expenses: Math.abs(expenses),
+              expenseBreakdown,
             });
           } catch (retryError) {
             console.error(`Failed retry for ${monthStart.toLocaleDateString('en-US', { month: 'short' })}:`, retryError);
@@ -220,6 +224,153 @@ async function generateQboMonthlyTrendData(
   }
 
   return trendData;
+}
+
+// Extract expense breakdown from Xero profit & loss report (top items)
+function extractExpenseBreakdown(
+  report: any
+): Array<{ name: string; value: number; percentage: number }> {
+  const expenses: Array<{ name: string; value: number }> = [];
+  const costOfSales = extractAccountValue(report, ["Total Cost of Sales"]);
+  let totalExpenses = costOfSales || 0;
+
+  if (costOfSales > 0) {
+    expenses.push({ name: "Cost of Sales", value: costOfSales });
+  }
+
+  if (!report?.reports || !Array.isArray(report.reports)) {
+    return [];
+  }
+
+  for (const reportData of report.reports) {
+    if (reportData.rows) {
+      for (const row of reportData.rows) {
+        // Check if this is the "Less Operating Expenses" section
+        if (
+          row.rowType === "Section" &&
+          row.title &&
+          row.title.toLowerCase().includes("less operating expenses")
+        ) {
+          if (row.rows && Array.isArray(row.rows)) {
+            for (const expenseRow of row.rows) {
+              if (
+                expenseRow.rowType === "Row" &&
+                expenseRow.cells &&
+                expenseRow.cells.length >= 2
+              ) {
+                const name = expenseRow.cells[0]?.value;
+                const value = expenseRow.cells[1]?.value;
+
+                if (name && value) {
+                  const expenseName = name.toString();
+                  const numericValue = typeof value === "string" ? parseFloat(value) : value;
+
+                  // Skip the "Total Operating Expenses" summary row
+                  if (
+                    !expenseName.toLowerCase().includes("total operating expenses") &&
+                    !isNaN(numericValue) &&
+                    numericValue > 0
+                  ) {
+                    expenses.push({ name: expenseName, value: numericValue });
+                    totalExpenses += numericValue;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Calculate percentages and sort by value
+  return expenses
+    .map((expense) => ({
+      ...expense,
+      percentage: totalExpenses > 0 ? (expense.value / totalExpenses) * 100 : 0,
+    }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 10); // Top 10 expenses
+}
+
+// Extract expense breakdown from QBO Profit & Loss report
+function extractQboExpenseBreakdown(report: any): Array<{ name: string; value: number; percentage: number }> {
+  const expenses: Array<{ name: string; value: number }> = [];
+  let totalExpenses = 0;
+
+  if (!report?.Rows?.Row) {
+    return [];
+  }
+
+  const rows = Array.isArray(report.Rows.Row) ? report.Rows.Row : [report.Rows.Row];
+
+  // Find the EXPENSES, OTHER EXPENSES, and COST OF GOODS SOLD sections
+  function findExpenseSections(rows: any[]): any[] {
+    const sections = [];
+
+    for (const row of rows) {
+      // Check if this is an expense section
+      if (row.Header && row.Header.ColData) {
+        const headerValue = row.Header.ColData[0]?.value;
+        if (
+          headerValue === "EXPENSES" ||
+          headerValue === "OTHER EXPENSES" ||
+          headerValue === "COST OF GOODS SOLD" ||
+          headerValue === "COST OF SALES" ||
+          headerValue === "COGS"
+        ) {
+          sections.push(row);
+        }
+      }
+
+      // Recursively search in nested rows
+      let nestedRows = null;
+      if (Array.isArray(row.Rows)) {
+        nestedRows = row.Rows;
+      } else if (row.Rows && row.Rows.Row) {
+        nestedRows = Array.isArray(row.Rows.Row) ? row.Rows.Row : [row.Rows.Row];
+      }
+
+      if (nestedRows) {
+        sections.push(...findExpenseSections(nestedRows));
+      }
+    }
+    return sections;
+  }
+
+  const expenseSections = findExpenseSections(rows);
+
+  // Extract individual expense items from all expense sections
+  for (const section of expenseSections) {
+    if (section?.Rows?.Row) {
+      const expenseRows = Array.isArray(section.Rows.Row) ? section.Rows.Row : [section.Rows.Row];
+
+      for (const row of expenseRows) {
+        if (row.type === "Data" && row.ColData) {
+          const name = row.ColData[0]?.value || "";
+          const value = row.ColData[1]?.value || "0";
+
+          if (name && !name.toLowerCase().includes("total")) {
+            const numericValue = typeof value === "string" ? parseFloat(value.replace(/,/g, "")) : value;
+
+            if (!isNaN(numericValue) && numericValue > 0) {
+              expenses.push({ name, value: Math.abs(numericValue) });
+              totalExpenses += Math.abs(numericValue);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Calculate percentages and sort by value
+  return expenses
+    .map((expense) => ({
+      ...expense,
+      percentage: totalExpenses > 0 ? (expense.value / totalExpenses) * 100 : 0,
+    }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 10); // Top 10 expenses
 }
 
 // Xero Helper Functions
@@ -305,11 +456,13 @@ async function generateXeroMonthlyTrendData(
 
         const revenue = extractAccountValue(profitLoss, ['Total Income']);
         const expenses = extractTotalOperatingExpenses(profitLoss);
+        const expenseBreakdown = extractExpenseBreakdown(profitLoss);
 
         trendData.push({
           month: monthStart.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
           revenue: Math.abs(revenue),
           expenses: Math.abs(expenses),
+          expenseBreakdown,
         });
       } catch (error) {
         console.error(`Error fetching Xero data for ${monthStart.getMonth() + 1}/${monthStart.getFullYear()}:`, error);

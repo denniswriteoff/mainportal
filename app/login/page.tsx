@@ -49,7 +49,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 shadow-lg relative z-10">
         <CardBody className="p-6">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-[#E8E7BB] to-[#d4d3a7] rounded-2xl mb-6 shadow-lg p-4">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-[#e7e7bc] to-[#e7e7bc] rounded-2xl mb-6 shadow-lg p-4">
               <Image
                 src="/image.png"
                 alt="Logo"

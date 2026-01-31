@@ -125,6 +125,33 @@ export async function GET(request: NextRequest) {
         // Process expense breakdown
         const expenseBreakdown = extractQboExpenseBreakdown(profitLoss);
 
+        // Compute static cash runway based on current cash and last month's expenses
+        let cashRunway: number | null = null;
+        try {
+          const now = new Date();
+          const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+          const lastFrom = lastMonthStart.toISOString().split('T')[0];
+          const lastTo = lastMonthEnd.toISOString().split('T')[0];
+
+          const lastProfitLossRes = await oauthClient.makeApiCall({
+            url: `${base}/v3/company/${realmId}/reports/ProfitAndLoss?start_date=${lastFrom}&end_date=${lastTo}`,
+            method: 'GET',
+            headers: { Accept: 'application/json' },
+          });
+
+          const lastProfitLoss = lastProfitLossRes.json || JSON.parse(lastProfitLossRes.body || '{}');
+          const { operatingExpenses: lastOperatingExpenses, costOfGoodsSold: lastCogs } = extractQboProfitLossSummary(lastProfitLoss);
+          const lastMonthExpenses = Math.abs((lastOperatingExpenses || 0) + (lastCogs || 0));
+
+          if (lastMonthExpenses > 0) {
+            cashRunway = (Math.abs(cashBalance) || 0) / lastMonthExpenses;
+          }
+        } catch (err) {
+          console.warn('Failed to compute last month expenses for cash runway (QBO):', err);
+          cashRunway = null;
+        }
+
         return NextResponse.json({
           organisation: {
             name: companyInfo?.CompanyInfo?.CompanyName || "Unknown",
@@ -136,6 +163,7 @@ export async function GET(request: NextRequest) {
             netProfit: netProfit,
             netMargin,
             cashBalance: Math.abs(cashBalance),
+            cashRunway,
           },
           expenseBreakdown,
           timeframe: {
@@ -230,6 +258,27 @@ export async function GET(request: NextRequest) {
       // Process expense breakdown
       const expenseBreakdown = extractExpenseBreakdown(profitLoss);
 
+      // Compute static cash runway based on current cash and last month's expenses
+      let cashRunway: number | null = null;
+      try {
+        const now = new Date();
+        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+        const lastFrom = lastMonthStart.toISOString().split('T')[0];
+        const lastTo = lastMonthEnd.toISOString().split('T')[0];
+
+        const lastProfitLoss = await getXeroProfitAndLoss(session.user.id, { fromDate: lastFrom, toDate: lastTo }).catch(() => null);
+        if (lastProfitLoss) {
+          const lastMonthExpenses = extractTotalOperatingExpenses(lastProfitLoss);
+          if (lastMonthExpenses > 0) {
+            cashRunway = (Math.abs(cashBalance) || 0) / lastMonthExpenses;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to compute last month expenses for cash runway (Xero):', err);
+        cashRunway = null;
+      }
+
       return NextResponse.json({
         kpis: {
           revenue,
@@ -237,6 +286,7 @@ export async function GET(request: NextRequest) {
           netProfit,
           netMargin,
           cashBalance,
+          cashRunway,
         },
         expenseBreakdown,
         timeframe: {
