@@ -69,21 +69,15 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
 
   // Initialize hidden keys: revenue & expenses visible by default, other series hidden
   const initHiddenKeys = () => {
-    const first = (data[0] || {}) as any
     const hidden: Record<string, boolean> = {}
-    const keys = Object.keys(first).filter((k) => k !== 'month' && k !== 'revenue')
-
-    for (const key of keys) {
-      // keep `expenses` visible, hide other expense breakdown keys by default
-      if (key === 'expenses') {
-        hidden[key] = false
-        continue
-      }
-      // default hide
-      hidden[key] = true
-    }
-    // ensure revenue is present and visible
+    // revenue & expenses visible
     hidden['revenue'] = false
+    hidden['expenses'] = false
+
+    // include expenseBreakdown keys (default hidden)
+    for (const b of expenseBreakdown || []) {
+      hidden[keyFromName(b.name)] = true
+    }
     return hidden
   }
   const [hiddenKeys, setHiddenKeys] = useState<Record<string, boolean>>(initHiddenKeys())
@@ -91,6 +85,10 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '')
+
+  const keyFromName = (name: string) => {
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, '_')
+  }
 
   const labelForKey = (key: string) => {
     if (key === 'revenue') return 'Revenue'
@@ -117,6 +115,11 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
   const getColorForKey = (key: string): string => {
     if (key === 'revenue') return '#10b981'
     if (key === 'expenses') return '#ef4444'
+
+    // build ordered expense keys from expenseBreakdown
+    const expenseKeys = (expenseBreakdown || []).map((b) => keyFromName(b.name))
+
+    // palette (no pure greens or reds)
     const palette = [
       '#f59e0b','#6366f1','#ec4899','#06b6d4','#ff7f50','#ffa500','#ffb347','#ff7bac','#8a2be2',
       '#7b68ee','#483d8b','#1e90ff','#6495ed','#00bfff','#4682b4','#5f9ea0','#40e0d0','#48d1cc',
@@ -125,21 +128,75 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
       '#2b2d42','#b56576','#6a4c93','#3a86ff','#8338ec','#ff8fab','#ffb4a2','#e9c46a','#355070',
       '#a3a0fb','#f72585','#7209b7','#3f37c9','#ff9f1c','#ffbf69','#c08497','#7c3aed','#4cc9f0'
     ]
-    const allKeys = (() => {
-      const first = data[0] || {} as any
-      return Object.keys(first).filter(k => k !== 'month' && k !== 'revenue')
-    })()
-    const idx = allKeys.indexOf(key)
-    return palette[idx % palette.length]
+
+    // helper: hex -> rgb
+    const hexToRgb = (hex: string) => {
+      const h = hex.replace('#', '')
+      const bigint = parseInt(h, 16)
+      return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255]
+    }
+
+    const colorDistance = (a: string, b: string) => {
+      const ra = hexToRgb(a), rb = hexToRgb(b)
+      return Math.sqrt(
+        Math.pow(ra[0] - rb[0], 2) + Math.pow(ra[1] - rb[1], 2) + Math.pow(ra[2] - rb[2], 2)
+      )
+    }
+
+    // assigned map cache
+    const assigned: Record<string, string> = {}
+    assigned['revenue'] = '#10b981'
+    assigned['expenses'] = '#ef4444'
+
+    // greedy assign palette to expenseKeys trying to maximize distance to already assigned colors
+    const remaining = [...palette]
+    for (const ek of expenseKeys) {
+      if (assigned[ek]) continue
+      let bestIdx = 0
+      let bestScore = -Infinity
+      for (let i = 0; i < remaining.length; i++) {
+        const candidate = remaining[i]
+        // score = min distance to all already assigned colors
+        let minDist = Infinity
+        for (const ac of Object.values(assigned)) {
+          const d = colorDistance(candidate, ac)
+          if (d < minDist) minDist = d
+        }
+        if (minDist > bestScore) {
+          bestScore = minDist
+          bestIdx = i
+        }
+      }
+      const chosen = remaining.splice(bestIdx, 1)[0]
+      assigned[ek] = chosen
+    }
+
+    // return assigned color if exists, otherwise fall back to a deterministic pick
+    return assigned[key] || palette[Math.abs(key.length) % palette.length]
   }
 
   const toggleKey = (key: string) => {
     setHiddenKeys((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
-  const seriesFirst = (data[0] || {}) as any
+  // Build augmented data by injecting expenseBreakdown values into each month's object
+  const expenseKeys = (expenseBreakdown || []).map((b) => keyFromName(b.name))
+
+  const augmentedData = data.map((row: any, idx: number) => {
+    const newRow = { ...row } as any
+    // assign breakdown values to the month that has non-zero expenses (fallback to index 0)
+    const targetIndex = data.findIndex((r: any) => (r.expenses || 0) > 0)
+    const setOnIndex = targetIndex >= 0 ? targetIndex : 0
+    for (let i = 0; i < (expenseBreakdown || []).length; i++) {
+      const key = expenseKeys[i]
+      newRow[key] = idx === setOnIndex ? (expenseBreakdown[i]?.value || 0) : 0
+    }
+    return newRow
+  })
+
+  const seriesFirst = (augmentedData[0] || {}) as any
   const seriesKeys = Object.keys(seriesFirst).filter(k => k !== 'month')
-  const extraKeys = seriesKeys.filter(k => k !== 'revenue' && k !== 'expenses')
+  const extraKeys = expenseKeys
 
   return (
     <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-green-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
@@ -155,7 +212,7 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
       
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+          <LineChart data={augmentedData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
             <XAxis 
               dataKey="month" 
@@ -187,7 +244,7 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
 
             {/* Dynamically render expense series (detect keys from data) */}
             {(() => {
-              const first = data[0] || {} as any
+              const first = augmentedData[0] || {} as any
               const keys = Object.keys(first).filter(k => k !== 'month' && k !== 'revenue')
               return keys.map((key, idx) => {
                 const color = getColorForKey(key)
