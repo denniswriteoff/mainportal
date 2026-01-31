@@ -12,6 +12,7 @@ interface TrendData {
 interface RevenueExpensesChartProps {
   data: TrendData[]
   loading?: boolean
+  // expenseBreakdown prop is optional; component will derive breakdowns from `data` if present
   expenseBreakdown?: { name: string; value?: number }[]
 }
 
@@ -73,6 +74,30 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
     return name.toLowerCase().replace(/[^a-z0-9]+/g, '_')
   }
 
+  // Derive breakdown items from `data` (per-month expenseBreakdown inside each row)
+  const derivedBreakdown = (() => {
+    const map = new Map<string, { name: string; value: number }>()
+    for (const row of data || []) {
+      const items = (row as any).expenseBreakdown || []
+      for (const it of items) {
+        if (!it || !it.name) continue
+        if (!map.has(it.name)) {
+          map.set(it.name, { name: it.name, value: Math.abs(it.value || 0) })
+        } else {
+          // keep the latest value (override) so legend shows recent magnitude
+          map.set(it.name, { name: it.name, value: Math.abs(it.value || 0) })
+        }
+      }
+    }
+    // Fallback to expenseBreakdown prop if no per-month breakdowns
+    if (map.size === 0 && expenseBreakdown && expenseBreakdown.length) {
+      for (const b of expenseBreakdown) {
+        map.set(b.name, { name: b.name, value: Math.abs(b.value || 0) })
+      }
+    }
+    return Array.from(map.values())
+  })()
+
   // Initialize hidden keys: revenue & expenses visible by default, other series hidden
   const initHiddenKeys = () => {
     const hidden: Record<string, boolean> = {}
@@ -80,8 +105,8 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
     hidden['revenue'] = false
     hidden['expenses'] = false
 
-    // include expenseBreakdown keys (default hidden)
-    for (const b of expenseBreakdown || []) {
+    // include derived breakdown keys (default hidden)
+    for (const b of derivedBreakdown || []) {
       hidden[keyFromName(b.name)] = true
     }
     return hidden
@@ -123,7 +148,7 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
       '#a3a0fb','#f72585','#7209b7','#3f37c9','#ff9f1c','#ffbf69','#c08497','#7c3aed','#4cc9f0'
     ]
 
-    const keys = (expenseBreakdown || []).map((b) => keyFromName(b.name))
+    const keys = (derivedBreakdown || []).map((b) => keyFromName(b.name))
     const map: Record<string, string> = {}
     // reserve revenue/expenses
     map['revenue'] = '#10b981'
@@ -137,7 +162,7 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
       map[keys[i]] = palette[(i * step) % palette.length]
     }
     return map
-  }, [expenseBreakdown])
+  }, [derivedBreakdown])
 
   const getColorForKey = (key: string): string => {
     if (key === 'revenue') return '#10b981'
@@ -150,16 +175,17 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
   }
 
   // Build augmented data by injecting expenseBreakdown values into each month's object
-  const expenseKeys = (expenseBreakdown || []).map((b) => keyFromName(b.name))
+  const expenseKeys = (derivedBreakdown || []).map((b) => keyFromName(b.name))
 
-  const augmentedData = data.map((row: any, idx: number) => {
+  // Build augmented data by injecting per-month expenseBreakdown values into each month's object
+  const augmentedData = data.map((row: any) => {
     const newRow = { ...row } as any
-    // assign breakdown values to the month that has non-zero expenses (fallback to index 0)
-    const targetIndex = data.findIndex((r: any) => (r.expenses || 0) > 0)
-    const setOnIndex = targetIndex >= 0 ? targetIndex : 0
-    for (let i = 0; i < (expenseBreakdown || []).length; i++) {
-      const key = expenseKeys[i]
-      newRow[key] = idx === setOnIndex ? (expenseBreakdown[i]?.value || 0) : 0
+    // initialize keys to 0
+    for (const k of expenseKeys) newRow[k] = 0
+    const items = (row as any).expenseBreakdown || []
+    for (const it of items) {
+      const k = keyFromName(it.name)
+      newRow[k] = Math.abs(it.value || 0)
     }
     return newRow
   })

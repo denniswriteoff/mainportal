@@ -710,7 +710,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
 
             {/* Revenue vs Expenses Trend Chart */}
             {(timeframe !== 'CUSTOM' || (timeframe === 'CUSTOM' && customFromDate && customToDate)) && (
-              <RevenueExpensesChart data={dashboardData?.trendData || []} loading={loadingMonthly} expenseBreakdown={dashboardData?.expenseBreakdown || []} />
+              <RevenueExpensesChart data={dashboardData?.trendData || []} loading={loadingMonthly} />
             )}
 
             {/* Net Profit Trend Chart */}
