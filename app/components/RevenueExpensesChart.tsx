@@ -115,7 +115,7 @@ export default function RevenueExpensesChart({ data, loading = false }: RevenueE
           <div className="bg-[#0fb881]/20 p-2.5 rounded-xl">
             <div className="w-2 h-2 bg-[#0fb881] rounded-full"></div>
           </div>
-          <h3 className="text-2xl font-bold text-white">Revenue vs Expenses Trend</h3>
+          <h3 className="text-2xl font-bold text-white">Revenue & Expenses Trend</h3>
         </div>
         <p className="text-sm text-gray-400 ml-12">Monthly comparison over the selected period</p>
       </div>
@@ -178,7 +178,6 @@ export default function RevenueExpensesChart({ data, loading = false }: RevenueE
 
       {/* Custom Interactive Legend */}
       <div className="mt-8 pt-6 border-t border-white/10">
-        <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold mb-4">Toggle Series</p>
         <div className="flex flex-wrap gap-2">
           {/* Revenue */}
           <button

@@ -183,6 +183,10 @@ export default function DashboardContent({ session: initialSession }: DashboardC
     console.log('timeframe', timeframe);
   }, [timeframe]);
 
+  useEffect(() => {
+    console.log(dashboardData);
+  }, [dashboardData]);
+
   // Fetch announcements on mount
   useEffect(() => {
     fetchAnnouncements();
@@ -413,6 +417,9 @@ export default function DashboardContent({ session: initialSession }: DashboardC
     if (!lastMonthExpenses || lastMonthExpenses === 0) return null;
     return cash / lastMonthExpenses;
   })();
+
+  // Number of months used in the denominator when calculating runway (we use last month's expenses)
+  const cashRunwayMonthsUsed = 1;
 
   const handleExpenseClick = (expenseName: string) => {
     setSelectedExpense(expenseName);
@@ -697,7 +704,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold">Cash Runway</p>
-                      <p className="text-3xl font-bold text-white mt-1">{cashRunwayMonths ? `${cashRunwayMonths.toFixed(1)} months` : '—'}</p>
+                      <p className="text-3xl font-bold text-white mt-1">{cashRunwayMonths ? `${cashRunwayMonths.toFixed(1)} months` : '—'} <span className="text-md">{cashRunwayMonthsUsed} month{cashRunwayMonthsUsed !== 1 ? 's' : ''}</span></p>
                     </div>
                   </div>
                 </div>
