@@ -1,7 +1,7 @@
 'use client'
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 
 interface TrendData {
   month: string
@@ -112,14 +112,8 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
     return key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())
   }
 
-  const getColorForKey = (key: string): string => {
-    if (key === 'revenue') return '#10b981'
-    if (key === 'expenses') return '#ef4444'
-
-    // build ordered expense keys from expenseBreakdown
-    const expenseKeys = (expenseBreakdown || []).map((b) => keyFromName(b.name))
-
-    // palette (no pure greens or reds)
+  // Precompute color assignments for breakdown keys to avoid runtime computation in render
+  const assignedColors = useMemo(() => {
     const palette = [
       '#f59e0b','#6366f1','#ec4899','#06b6d4','#ff7f50','#ffa500','#ffb347','#ff7bac','#8a2be2',
       '#7b68ee','#483d8b','#1e90ff','#6495ed','#00bfff','#4682b4','#5f9ea0','#40e0d0','#48d1cc',
@@ -129,53 +123,26 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
       '#a3a0fb','#f72585','#7209b7','#3f37c9','#ff9f1c','#ffbf69','#c08497','#7c3aed','#4cc9f0'
     ]
 
-    // helper: hex -> rgb
-    const hexToRgb = (hex: string) => {
-      let hexClean = (hex || '').replace('#', '')
-      if (hexClean.length === 3) {
-        hexClean = hexClean.split('').map((c) => c + c).join('')
-      }
-      const bigint = parseInt(hexClean, 16) || 0
-      return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255]
+    const keys = (expenseBreakdown || []).map((b) => keyFromName(b.name))
+    const map: Record<string, string> = {}
+    // reserve revenue/expenses
+    map['revenue'] = '#10b981'
+    map['expenses'] = '#ef4444'
+
+    if (keys.length === 0) return map
+
+    // pick spread indices from palette to avoid similar adjacent colors
+    const step = Math.max(1, Math.floor(palette.length / keys.length))
+    for (let i = 0; i < keys.length; i++) {
+      map[keys[i]] = palette[(i * step) % palette.length]
     }
+    return map
+  }, [expenseBreakdown])
 
-    const colorDistance = (a: string, b: string) => {
-      const ra = hexToRgb(a), rb = hexToRgb(b)
-      return Math.sqrt(
-        Math.pow(ra[0] - rb[0], 2) + Math.pow(ra[1] - rb[1], 2) + Math.pow(ra[2] - rb[2], 2)
-      )
-    }
-
-    // assigned map cache
-    const assigned: Record<string, string> = {}
-    assigned['revenue'] = '#10b981'
-    assigned['expenses'] = '#ef4444'
-
-    // greedy assign palette to expenseKeys trying to maximize distance to already assigned colors
-    const remaining = [...palette]
-    for (const ek of expenseKeys) {
-      if (assigned[ek]) continue
-      let bestIdx = 0
-      let bestScore = -Infinity
-      for (let i = 0; i < remaining.length; i++) {
-        const candidate = remaining[i]
-        // score = min distance to all already assigned colors
-        let minDist = Infinity
-        for (const ac of Object.values(assigned)) {
-          const d = colorDistance(candidate, ac)
-          if (d < minDist) minDist = d
-        }
-        if (minDist > bestScore) {
-          bestScore = minDist
-          bestIdx = i
-        }
-      }
-      const chosen = remaining.splice(bestIdx, 1)[0]
-      assigned[ek] = chosen
-    }
-
-    // return assigned color if exists, otherwise fall back to a deterministic pick
-    return assigned[key] || palette[Math.abs(key.length) % palette.length]
+  const getColorForKey = (key: string): string => {
+    if (key === 'revenue') return '#10b981'
+    if (key === 'expenses') return '#ef4444'
+    return assignedColors[key] || '#9ca3af'
   }
 
   const toggleKey = (key: string) => {
