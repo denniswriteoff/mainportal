@@ -131,8 +131,11 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
 
     // helper: hex -> rgb
     const hexToRgb = (hex: string) => {
-      const h = hex.replace('#', '')
-      const bigint = parseInt(h, 16)
+      let hexClean = (hex || '').replace('#', '')
+      if (hexClean.length === 3) {
+        hexClean = hexClean.split('').map((c) => c + c).join('')
+      }
+      const bigint = parseInt(hexClean, 16) || 0
       return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255]
     }
 
