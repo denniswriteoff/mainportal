@@ -67,6 +67,12 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
     return null
   }
 
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '')
+
+  const keyFromName = (name: string) => {
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, '_')
+  }
+
   // Initialize hidden keys: revenue & expenses visible by default, other series hidden
   const initHiddenKeys = () => {
     const hidden: Record<string, boolean> = {}
@@ -83,12 +89,6 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
   const [hiddenKeys, setHiddenKeys] = useState<Record<string, boolean>>(initHiddenKeys())
 
   const [drawerOpen, setDrawerOpen] = useState(false)
-
-  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '')
-
-  const keyFromName = (name: string) => {
-    return name.toLowerCase().replace(/[^a-z0-9]+/g, '_')
-  }
 
   const labelForKey = (key: string) => {
     if (key === 'revenue') return 'Revenue'
