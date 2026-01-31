@@ -12,9 +12,10 @@ interface TrendData {
 interface RevenueExpensesChartProps {
   data: TrendData[]
   loading?: boolean
+  expenseBreakdown?: { name: string; value?: number }[]
 }
 
-export default function RevenueExpensesChart({ data, loading = false }: RevenueExpensesChartProps) {
+export default function RevenueExpensesChart({ data, loading = false, expenseBreakdown = [] }: RevenueExpensesChartProps) {
   if (loading) {
       return (
         <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 shadow-lg">
@@ -66,28 +67,49 @@ export default function RevenueExpensesChart({ data, loading = false }: RevenueE
     return null
   }
 
-  // Initialize hidden keys: default series off if they have no data
+  // Initialize hidden keys: revenue & expenses visible by default, other series hidden
   const initHiddenKeys = () => {
     const first = (data[0] || {}) as any
     const hidden: Record<string, boolean> = {}
-    const keysToCheck = ['revenue', 'expenses', 'cogs', 'subcontractors', 'ownerRelated', 'otherExpenses']
-    
-    for (const key of keysToCheck) {
-      if (typeof first[key] === 'number' && first[key] === 0) {
-        hidden[key] = true
+    const keys = Object.keys(first).filter((k) => k !== 'month' && k !== 'revenue')
+
+    for (const key of keys) {
+      // keep `expenses` visible, hide other expense breakdown keys by default
+      if (key === 'expenses') {
+        hidden[key] = false
+        continue
       }
+      // default hide
+      hidden[key] = true
     }
+    // ensure revenue is present and visible
+    hidden['revenue'] = false
     return hidden
   }
   const [hiddenKeys, setHiddenKeys] = useState<Record<string, boolean>>(initHiddenKeys())
 
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '')
+
   const labelForKey = (key: string) => {
     if (key === 'revenue') return 'Revenue'
     if (key === 'expenses') return 'Expenses'
-    if (key === 'cogs') return 'Cost of Goods Sold'
-    if (key === 'subcontractors') return 'Subcontractors'
-    if (key === 'ownerRelated') return 'Owner Related'
-    if (key === 'otherExpenses') return 'Other Expenses'
+
+    const nk = normalize(key)
+
+    // try to map using expenseBreakdown prop
+    if (expenseBreakdown && expenseBreakdown.length) {
+      for (const item of expenseBreakdown) {
+        const nn = normalize(item.name)
+        if (!nn) continue
+        // match if normalized strings contain each other (handles plurals)
+        if (nn.includes(nk) || nk.includes(nn) || nn.includes(nk.replace(/s$/, '')) || nk.includes(nn.replace(/s$/, ''))) {
+          return item.name
+        }
+      }
+    }
+
     // Fallback: prettify
     return key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())
   }
@@ -95,7 +117,14 @@ export default function RevenueExpensesChart({ data, loading = false }: RevenueE
   const getColorForKey = (key: string): string => {
     if (key === 'revenue') return '#10b981'
     if (key === 'expenses') return '#ef4444'
-    const palette = ['#f59e0b', '#6366f1', '#ec4899', '#06b6d4']
+    const palette = [
+      '#f59e0b','#6366f1','#ec4899','#06b6d4','#ff7f50','#ffa500','#ffb347','#ff7bac','#8a2be2',
+      '#7b68ee','#483d8b','#1e90ff','#6495ed','#00bfff','#4682b4','#5f9ea0','#40e0d0','#48d1cc',
+      '#00ced1','#7fffd4','#dda0dd','#da70d6','#ff69b4','#ff1493','#c71585','#db7093','#ffcc00',
+      '#ffd700','#f4a261','#e76f51','#9b5de5','#f15bb5','#fee440','#f8961e','#ffb703','#8d99ae',
+      '#2b2d42','#b56576','#6a4c93','#3a86ff','#8338ec','#ff8fab','#ffb4a2','#e9c46a','#355070',
+      '#a3a0fb','#f72585','#7209b7','#3f37c9','#ff9f1c','#ffbf69','#c08497','#7c3aed','#4cc9f0'
+    ]
     const allKeys = (() => {
       const first = data[0] || {} as any
       return Object.keys(first).filter(k => k !== 'month' && k !== 'revenue')
@@ -107,6 +136,10 @@ export default function RevenueExpensesChart({ data, loading = false }: RevenueE
   const toggleKey = (key: string) => {
     setHiddenKeys((prev) => ({ ...prev, [key]: !prev[key] }))
   }
+
+  const seriesFirst = (data[0] || {}) as any
+  const seriesKeys = Object.keys(seriesFirst).filter(k => k !== 'month')
+  const extraKeys = seriesKeys.filter(k => k !== 'revenue' && k !== 'expenses')
 
   return (
     <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-green-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
@@ -178,48 +211,74 @@ export default function RevenueExpensesChart({ data, loading = false }: RevenueE
 
       {/* Custom Interactive Legend */}
       <div className="mt-8 pt-6 border-t border-white/10">
-        <div className="flex flex-wrap gap-2">
-          {/* Revenue */}
+        <div className="flex justify-center gap-4">
           <button
             onClick={() => toggleKey('revenue')}
-            className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20"
+            style={{ width: '40%' }}
+            className={`flex items-center justify-center space-x-2 px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20 ${hiddenKeys['revenue'] ? 'opacity-60' : ''}`}
           >
             <div
-              className="w-2.5 h-2.5 rounded-full transition-opacity"
-              style={{
-                backgroundColor: getColorForKey('revenue'),
-                opacity: hiddenKeys['revenue'] ? 0.3 : 1,
-              }}
+              className="w-3.5 h-3.5 rounded-full"
+              style={{ backgroundColor: getColorForKey('revenue') }}
             />
-            <span className={`text-xs font-medium transition-opacity ${hiddenKeys['revenue'] ? 'text-gray-500' : 'text-gray-300'}`}>
+            <span className={`text-sm font-medium ${hiddenKeys['revenue'] ? 'text-gray-500' : 'text-gray-300'}`}>
               {labelForKey('revenue')}
             </span>
           </button>
 
-          {/* Expense categories */}
-          {(() => {
-            const first = data[0] || {} as any
-            const keys = Object.keys(first).filter(k => k !== 'month' && k !== 'revenue')
-            return keys.map((key) => (
+          <button
+            onClick={() => toggleKey('expenses')}
+            style={{ width: '40%' }}
+            className={`flex items-center justify-center space-x-2 px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20 ${hiddenKeys['expenses'] ? 'opacity-60' : ''}`}
+          >
+            <div
+              className="w-3.5 h-3.5 rounded-full"
+              style={{ backgroundColor: getColorForKey('expenses') }}
+            />
+            <span className={`text-sm font-medium ${hiddenKeys['expenses'] ? 'text-gray-500' : 'text-gray-300'}`}>
+              {labelForKey('expenses')}
+            </span>
+          </button>
+        </div>
+
+        {extraKeys.length > 0 && (
+          <>
+            <div className="flex justify-center mt-3">
               <button
-                key={key}
-                onClick={() => toggleKey(key)}
-                className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20"
+                onClick={() => setDrawerOpen(!drawerOpen)}
+                className="flex items-center space-x-2 text-sm text-gray-400 hover:text-white px-3 py-2 rounded-md transition-all"
               >
-                <div
-                  className="w-2.5 h-2.5 rounded-full transition-opacity"
-                  style={{
-                    backgroundColor: getColorForKey(key),
-                    opacity: hiddenKeys[key] ? 0.3 : 1,
-                  }}
-                />
-                <span className={`text-xs font-medium transition-opacity ${hiddenKeys[key] ? 'text-gray-500' : 'text-gray-300'}`}>
-                  {labelForKey(key)}
+                <span>{drawerOpen ? 'Hide breakdown' : 'Show breakdown'}</span>
+                <span className={`transform transition-transform ${drawerOpen ? 'rotate-180' : ''}`}>
+                  ▼
                 </span>
               </button>
-            ))
-          })()}
-        </div>
+            </div>
+
+            {drawerOpen && (
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {extraKeys.map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => toggleKey(key)}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20`}
+                  >
+                    <div
+                      className="w-2.5 h-2.5 rounded-full transition-opacity"
+                      style={{
+                        backgroundColor: getColorForKey(key),
+                        opacity: hiddenKeys[key] ? 0.3 : 1,
+                      }}
+                    />
+                    <span className={`text-xs font-medium transition-opacity ${hiddenKeys[key] ? 'text-gray-500' : 'text-gray-300'}`}>
+                      {labelForKey(key)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   )

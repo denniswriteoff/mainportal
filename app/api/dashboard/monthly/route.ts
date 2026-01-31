@@ -77,14 +77,10 @@ export async function GET(request: NextRequest) {
 function extractQboProfitLossSummary(report: any): {
   revenue: number;
   operatingExpenses: number;
-  costOfGoodsSold: number;
-  otherExpenses: number;
 } {
   const result = {
     revenue: 0,
     operatingExpenses: 0,
-    costOfGoodsSold: 0,
-    otherExpenses: 0,
   };
 
   if (!report?.Rows?.Row) {
@@ -107,89 +103,12 @@ function extractQboProfitLossSummary(report: any): {
           case "Total Expenses":
             result.operatingExpenses = numericValue;
             break;
-          case "Total Cost of Goods Sold":
-            result.costOfGoodsSold = numericValue;
-            break;
-          case "Total Other Expenses":
-            result.otherExpenses = numericValue;
-            break;
         }
       }
     }
   }
 
   return result;
-}
-
-// Extract grouped expense categories (best-effort heuristic): cogs, subcontractors, ownerRelated, otherExpenses
-function extractQboExpenseCategories(report: any): { cogs: number; subcontractors: number; ownerRelated: number; otherExpenses: number } {
-  let cogs = 0;
-  let subcontractors = 0;
-  let ownerRelated = 0;
-  let otherExpenses = 0;
-
-  if (!report?.Rows?.Row) return { cogs, subcontractors, ownerRelated, otherExpenses };
-
-  const rows = Array.isArray(report.Rows.Row) ? report.Rows.Row : [report.Rows.Row];
-
-  function findExpenseSections(rows: any[]): any[] {
-    const sections: any[] = [];
-    for (const row of rows) {
-      if (row.Header && row.Header.ColData) {
-        const headerValue = row.Header.ColData[0]?.value;
-        if (
-          headerValue === "EXPENSES" ||
-          headerValue === "OTHER EXPENSES" ||
-          headerValue === "COST OF GOODS SOLD" ||
-          headerValue === "COST OF SALES" ||
-          headerValue === "COGS"
-        ) {
-          sections.push(row);
-        }
-      }
-
-      let nestedRows = null;
-      if (Array.isArray(row.Rows)) {
-        nestedRows = row.Rows;
-      } else if (row.Rows && row.Rows.Row) {
-        nestedRows = Array.isArray(row.Rows.Row) ? row.Rows.Row : [row.Rows.Row];
-      }
-
-      if (nestedRows) {
-        sections.push(...findExpenseSections(nestedRows));
-      }
-    }
-    return sections;
-  }
-
-  const expenseSections = findExpenseSections(rows);
-
-  for (const section of expenseSections) {
-    if (section?.Rows?.Row) {
-      const expenseRows = Array.isArray(section.Rows.Row) ? section.Rows.Row : [section.Rows.Row];
-      for (const row of expenseRows) {
-        if (row.type === "Data" && row.ColData) {
-          const name = (row.ColData[0]?.value || "").toString();
-          const valueRaw = row.ColData[1]?.value || "0";
-          const numericValue = typeof valueRaw === 'string' ? parseFloat(valueRaw.replace(/,/g, '')) : valueRaw;
-          if (!isNaN(numericValue) && numericValue > 0) {
-            const lname = name.toLowerCase();
-            if (lname.includes('subcontract')) {
-              subcontractors += Math.abs(numericValue);
-            } else if (lname.includes('owner')) {
-              ownerRelated += Math.abs(numericValue);
-            } else if (lname.includes('cost of goods') || lname.includes('cost of sales') || lname === 'cogs') {
-              cogs += Math.abs(numericValue);
-            } else {
-              otherExpenses += Math.abs(numericValue);
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return { cogs, subcontractors, ownerRelated, otherExpenses };
 }
 
 async function generateQboMonthlyTrendData(
@@ -199,7 +118,7 @@ async function generateQboMonthlyTrendData(
   base: string,
   fromDate?: string | null,
   toDate?: string | null
-): Promise<Array<{ month: string; revenue: number; expenses: number; cogs?: number; subcontractors?: number; ownerRelated?: number; otherExpenses?: number }>> {
+): Promise<Array<{ month: string; revenue: number; expenses: number }>> {
   const trendData = [];
 
   try {
@@ -240,18 +159,13 @@ async function generateQboMonthlyTrendData(
         });
 
         const profitLoss = response.json || JSON.parse(response.body || "{}");
-        const { revenue, operatingExpenses, costOfGoodsSold, otherExpenses } = extractQboProfitLossSummary(profitLoss);
-        const expenses = operatingExpenses + costOfGoodsSold + otherExpenses;
-        const categories = extractQboExpenseCategories(profitLoss);
+        const { revenue, operatingExpenses } = extractQboProfitLossSummary(profitLoss);
+        const expenses = operatingExpenses;
 
         trendData.push({
           month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
           revenue: Math.abs(revenue),
           expenses: Math.abs(expenses),
-          cogs: Math.abs(categories.cogs || 0),
-          subcontractors: Math.abs(categories.subcontractors || 0),
-          ownerRelated: Math.abs(categories.ownerRelated || 0),
-          otherExpenses: Math.abs(categories.otherExpenses || 0),
         });
       } catch (error: any) {
         // Handle rate limiting with retry
@@ -270,18 +184,13 @@ async function generateQboMonthlyTrendData(
             });
 
             const retryProfitLoss = retryResponse.json || JSON.parse(retryResponse.body || "{}");
-            const { revenue, operatingExpenses, costOfGoodsSold, otherExpenses } = extractQboProfitLossSummary(retryProfitLoss);
-            const expenses = operatingExpenses + costOfGoodsSold + otherExpenses;
-            const categories = extractQboExpenseCategories(retryProfitLoss);
+            const { revenue, operatingExpenses } = extractQboProfitLossSummary(retryProfitLoss);
+            const expenses = operatingExpenses;
 
             trendData.push({
               month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
               revenue: Math.abs(revenue),
               expenses: Math.abs(expenses),
-              cogs: Math.abs(categories.cogs || 0),
-              subcontractors: Math.abs(categories.subcontractors || 0),
-              ownerRelated: Math.abs(categories.ownerRelated || 0),
-              otherExpenses: Math.abs(categories.otherExpenses || 0),
             });
           } catch (retryError) {
             console.error(`Failed retry for ${monthStart.toLocaleDateString('en-US', { month: 'short' })}:`, retryError);
@@ -289,10 +198,6 @@ async function generateQboMonthlyTrendData(
               month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
               revenue: 0,
               expenses: 0,
-              cogs: 0,
-              subcontractors: 0,
-              ownerRelated: 0,
-              otherExpenses: 0,
             });
           }
         } else {
@@ -301,10 +206,6 @@ async function generateQboMonthlyTrendData(
             month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
             revenue: 0,
             expenses: 0,
-            cogs: 0,
-            subcontractors: 0,
-            ownerRelated: 0,
-            otherExpenses: 0,
           });
         }
       }
@@ -370,7 +271,7 @@ async function generateXeroMonthlyTrendData(
   year?: number | undefined,
   fromDateParam?: string | null,
   toDateParam?: string | null
-): Promise<Array<{ month: string; revenue: number; expenses: number; cogs?: number; subcontractors?: number; ownerRelated?: number; otherExpenses?: number }>> {
+): Promise<Array<{ month: string; revenue: number; expenses: number }>> {
   const trendData = [];
 
   try {
@@ -409,10 +310,6 @@ async function generateXeroMonthlyTrendData(
           month: monthStart.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
           revenue: Math.abs(revenue),
           expenses: Math.abs(expenses),
-          cogs: Math.abs(extractAccountValue(profitLoss, ['Total Cost of Sales']) || 0),
-          subcontractors: 0,
-          ownerRelated: 0,
-          otherExpenses: Math.abs(expenses - (extractAccountValue(profitLoss, ['Total Cost of Sales']) || 0)),
         });
       } catch (error) {
         console.error(`Error fetching Xero data for ${monthStart.getMonth() + 1}/${monthStart.getFullYear()}:`, error);
@@ -420,10 +317,6 @@ async function generateXeroMonthlyTrendData(
           month: monthStart.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
           revenue: 0,
           expenses: 0,
-          cogs: 0,
-          subcontractors: 0,
-          ownerRelated: 0,
-          otherExpenses: 0,
         });
       }
     }

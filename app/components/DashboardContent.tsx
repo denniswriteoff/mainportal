@@ -704,7 +704,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold">Cash Runway</p>
-                      <p className="text-3xl font-bold text-white mt-1">{cashRunwayMonths ? `${cashRunwayMonths.toFixed(1)} months` : '—'} <span className="text-md">{cashRunwayMonthsUsed} month{cashRunwayMonthsUsed !== 1 ? 's' : ''}</span></p>
+                      <p className="text-3xl font-bold text-white mt-1">{cashRunwayMonths ? `${cashRunwayMonths.toFixed(1)} months` : '—'}</p>
                     </div>
                   </div>
                 </div>
@@ -714,7 +714,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
 
             {/* Revenue vs Expenses Trend Chart */}
             {(timeframe !== 'CUSTOM' || (timeframe === 'CUSTOM' && customFromDate && customToDate)) && (
-              <RevenueExpensesChart data={dashboardData?.trendData || []} loading={loadingMonthly} />
+              <RevenueExpensesChart data={dashboardData?.trendData || []} loading={loadingMonthly} expenseBreakdown={dashboardData?.expenseBreakdown || []} />
             )}
 
             {/* Net Profit Trend Chart */}

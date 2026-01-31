@@ -16,16 +16,12 @@ interface ExpenseBreakdownChartProps {
 
 // Color palette for the pie chart segments - NO Beige
 const COLORS = [
-  '#3b82f6', // blue
-  '#ef4444', // red
-  '#10b981', // green
-  '#f59e0b', // amber
-  '#8b5cf6', // violet
-  '#06b6d4', // cyan
-  '#ec4899', // pink
-  '#6366f1', // indigo
-  '#f97316', // orange
-  '#84cc16', // lime
+  '#f59e0b','#6366f1','#ec4899','#06b6d4','#ff7f50','#ffa500','#ffb347','#ff7bac','#8a2be2',
+  '#7b68ee','#483d8b','#1e90ff','#6495ed','#00bfff','#4682b4','#5f9ea0','#40e0d0','#48d1cc',
+  '#00ced1','#7fffd4','#dda0dd','#da70d6','#ff69b4','#ff1493','#c71585','#db7093','#ffcc00',
+  '#ffd700','#f4a261','#e76f51','#9b5de5','#f15bb5','#fee440','#f8961e','#ffb703','#8d99ae',
+  '#2b2d42','#b56576','#6a4c93','#3a86ff','#8338ec','#ff8fab','#ffb4a2','#e9c46a','#355070',
+  '#a3a0fb','#f72585','#7209b7','#3f37c9','#ff9f1c','#ffbf69','#c08497','#7c3aed','#4cc9f0'
 ]
 
 export default function ExpenseBreakdownChart({ data, loading = false, onExpenseClick }: ExpenseBreakdownChartProps) {
@@ -104,7 +100,7 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
                 className="w-3 h-3 rounded-full" 
                 style={{ backgroundColor: entry.color }}
               />
-              <span className="text-gray-700">
+              <span className="text-white">
                 {entry.value}
               </span>
             </div>
