@@ -192,7 +192,11 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
 
         {drawerOpen && (
           <div className="mt-4 grid grid-cols-2 gap-2">
-            {data.map((key) => (
+            {data.map((key) => {
+              const k = keyFromName(key.name)
+              const hidden = !!hiddenKeys[k]  
+
+              return (
               <button
                 key={key.name}
                 onClick={() => toggleHidden(key.name)}
@@ -202,14 +206,14 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
                   className="w-2.5 h-2.5 rounded-full transition-opacity"
                   style={{
                     backgroundColor: getColorForKey(key.name),
-                    opacity: hiddenKeys[key.name] ? 0.3 : 1,
+                    opacity: hidden ? 0.3 : 1,
                   }}
                 />
-                <span className={`text-xs font-medium transition-opacity ${hiddenKeys[key.name] ? 'text-gray-500' : 'text-gray-300'}`}>
+                <span className={`text-xs font-medium transition-opacity ${hidden ? 'text-gray-500' : 'text-gray-300'}`}>
                   {key.name}
                 </span>
               </button>
-            ))}
+            )})}
           </div>
         )}
       </div>
