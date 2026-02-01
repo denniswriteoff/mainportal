@@ -98,6 +98,10 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
     setHiddenKeys(prev => ({ ...prev, [k]: !prev[k] }))
   }
 
+  const toggleKey = (key: string) => {
+    setHiddenKeys((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
   const visibleData = data.filter(d => !hiddenKeys[keyFromName(d.name)])
 
   // color assignment for pie segments and chips
@@ -120,7 +124,7 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
         return (
           <button
             key={k}
-            onClick={() => toggleHidden(d.name)}
+            onClick={(e) => { e.stopPropagation(); if (onExpenseClick) onExpenseClick(d.name) }}
             className={`flex items-center space-x-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20 ${hidden ? 'opacity-60' : ''}`}
           >
             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getColorForKey(d.name) }} />
@@ -177,7 +181,7 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
       </div>
       <Chips />
       {/* Breakdown toggles drawer */}
-      <div className="mt-6 pt-6 border-t border-white/10">
+      <div className="mt-6 border-t border-white/10">
         <div className="flex justify-center mt-3">
           <button
             onClick={() => setDrawerOpen(!drawerOpen)}
@@ -192,25 +196,24 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
 
         {drawerOpen && (
           <div className="mt-4 grid grid-cols-2 gap-2">
-            {data.map((d, idx) => {
-              const k = keyFromName(d.name)
-              return (
-                <label key={k} className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20">
-                  <input
-                    type="checkbox"
-                    checked={!hiddenKeys[k]}
-                    onChange={() => toggleHidden(d.name)}
-                    className="w-4 h-4"
-                  />
-                  <span
-                    className={`text-xs font-medium ${hiddenKeys[k] ? 'text-gray-500' : 'text-gray-300'} cursor-pointer`}
-                    onClick={() => toggleHidden(d.name)}
-                  >
-                    {d.name}
-                  </span>
-                </label>
-              )
-            })}
+            {data.map((key) => (
+              <button
+                key={key.name}
+                onClick={() => toggleKey(key.name)}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20`}
+              >
+                <div
+                  className="w-2.5 h-2.5 rounded-full transition-opacity"
+                  style={{
+                    backgroundColor: getColorForKey(key.name),
+                    opacity: hiddenKeys[key.name] ? 0.3 : 1,
+                  }}
+                />
+                <span className={`text-xs font-medium transition-opacity ${hiddenKeys[key.name] ? 'text-gray-500' : 'text-gray-300'}`}>
+                  {key.name}
+                </span>
+              </button>
+            ))}
           </div>
         )}
       </div>
