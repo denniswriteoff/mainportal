@@ -98,10 +98,6 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
     setHiddenKeys(prev => ({ ...prev, [k]: !prev[k] }))
   }
 
-  const toggleKey = (key: string) => {
-    setHiddenKeys((prev) => ({ ...prev, [key]: !prev[key] }))
-  }
-
   const visibleData = data.filter(d => !hiddenKeys[keyFromName(d.name)])
 
   // color assignment for pie segments and chips
@@ -199,7 +195,7 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
             {data.map((key) => (
               <button
                 key={key.name}
-                onClick={() => toggleKey(key.name)}
+                onClick={() => toggleHidden(key.name)}
                 className={`flex items-center space-x-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20`}
               >
                 <div
