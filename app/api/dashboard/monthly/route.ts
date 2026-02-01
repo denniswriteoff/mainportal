@@ -268,8 +268,7 @@ function extractExpenseBreakdown(
                   // Skip the "Total Operating Expenses" summary row
                   if (
                     !expenseName.toLowerCase().includes("total operating expenses") &&
-                    !isNaN(numericValue) &&
-                    numericValue > 0
+                    !isNaN(numericValue)
                   ) {
                     expenses.push({ name: expenseName, value: numericValue });
                     totalExpenses += numericValue;
@@ -352,7 +351,7 @@ function extractQboExpenseBreakdown(report: any): Array<{ name: string; value: n
           if (name && !name.toLowerCase().includes("total")) {
             const numericValue = typeof value === "string" ? parseFloat(value.replace(/,/g, "")) : value;
 
-            if (!isNaN(numericValue) && numericValue > 0) {
+            if (!isNaN(numericValue)) {
               expenses.push({ name, value: Math.abs(numericValue) });
               totalExpenses += Math.abs(numericValue);
             }

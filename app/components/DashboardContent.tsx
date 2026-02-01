@@ -26,6 +26,39 @@ interface DashboardContentProps {
   session: Session;
 }
 
+// Helper function to combine monthly expense breakdowns into a single aggregated breakdown
+function combineMonthlyExpenseBreakdowns(
+  trendData: Array<{ month: string; revenue: number; expenses: number; expenseBreakdown?: Array<{ name: string; value: number; percentage: number }> }>
+): Array<{ name: string; value: number; percentage: number }> {
+  const expenseMap = new Map<string, number>();
+  
+  // Aggregate all expenses across all months
+  for (const month of trendData) {
+    if (month.expenseBreakdown && Array.isArray(month.expenseBreakdown)) {
+      for (const expense of month.expenseBreakdown) {
+        const currentValue = expenseMap.get(expense.name) || 0;
+        expenseMap.set(expense.name, currentValue + expense.value);
+      }
+    }
+  }
+  
+  // Convert to array and calculate total
+  const expenses = Array.from(expenseMap.entries()).map(([name, value]) => ({
+    name,
+    value,
+  }));
+  
+  const totalExpenses = expenses.reduce((sum, exp) => sum + exp.value, 0);
+  
+  // Calculate percentages and sort by value
+  return expenses
+    .map((expense) => ({
+      ...expense,
+      percentage: totalExpenses > 0 ? (expense.value / totalExpenses) * 100 : 0,
+    }))
+    .sort((a, b) => b.value - a.value);
+}
+
 export default function DashboardContent({ session: initialSession }: DashboardContentProps) {
   const { data: session } = useSession();
   const currentSession = session || initialSession;
@@ -131,9 +164,14 @@ export default function DashboardContent({ session: initialSession }: DashboardC
         const monthlyResponse = await fetch(`/api/dashboard/monthly?fromDate=${fromDateStr}&toDate=${toDateStr}`);
         if (monthlyResponse.ok) {
           const monthlyData = await monthlyResponse.json();
+          
+          // Combine monthly expense breakdowns into a single aggregated breakdown
+          const combinedExpenseBreakdown = combineMonthlyExpenseBreakdowns(monthlyData.trendData || []);
+          
           setDashboardData((prev: any) => ({ 
             ...prev, 
             trendData: monthlyData.trendData || [],
+            expenseBreakdown: combinedExpenseBreakdown || prev?.expenseBreakdown || [],
           }));
         } else {
           setDashboardData((prev: any) => ({ ...prev, trendData: [] }));
