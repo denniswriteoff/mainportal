@@ -552,8 +552,8 @@ export default function DashboardContent({ session: initialSession }: DashboardC
         ) : (
           <div className="space-y-6 animate-slide-in">
             {/* Timeframe Toggle - Always visible */}
-            <div className="flex items-center justify-between bg-white/5 backdrop-blur-sm rounded-2xl px-6 py-4 border border-white/10 shadow-lg">
-              <div className="flex items-center space-x-3">
+            <div className="flex-column sm:flex items-center justify-between bg-white/5 backdrop-blur-sm rounded-2xl px-2 sm:px-6 py-4 border border-white/10 shadow-lg">
+              <div className="flex-column sm:flex items-center space-x-3">
                 <h2 className="text-xl font-semibold text-white">
                   {dashboardData?.organisation?.name || 'Financial'} Overview
                 </h2>
@@ -564,7 +564,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                 )}
               </div>
               
-              <div className="flex items-center space-x-3">
+              <div className="flex-column sm:flex items-center space-x-3 space-y-3 mt-3 sm:mt-0">
                 <div className="flex items-center space-x-2 bg-white/5 rounded-xl p-1.5 border border-white/10">
                   <button
                     onClick={() => {
@@ -574,7 +574,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                         setCustomToDate('');
                       }
                     }}
-                    className={`px-4 py-2 text-sm rounded-lg font-medium transition-all ${
+                    className={`px-2 py-1 sm:px-4 sm:py-2 text-sm rounded-lg font-medium transition-all ${
                       timeframe === 'MONTH'
                         ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-lg'
                         : 'text-gray-300 hover:text-white hover:bg-white/5'
@@ -590,7 +590,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                         setCustomToDate('');
                       }
                     }}
-                    className={`px-4 py-2 text-sm rounded-lg font-medium transition-all ${
+                    className={`px-2 py-1 sm:px-4 sm:py-2 text-sm rounded-lg font-medium transition-all ${
                       timeframe === 'YEAR'
                         ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-lg'
                         : 'text-gray-300 hover:text-white hover:bg-white/5'
@@ -606,7 +606,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                         setCustomToDate('');
                       }
                     }}
-                    className={`px-4 py-2 text-sm rounded-lg font-medium transition-all ${
+                    className={`px-2 py-1 sm:px-4 sm:py-2 text-sm rounded-lg font-medium transition-all ${
                       timeframe === 'L12'
                         ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-lg'
                         : 'text-gray-300 hover:text-white'
@@ -616,7 +616,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                   </button>
                   <button
                     onClick={() => setTimeframe('CUSTOM')}
-                    className={`px-5 py-2 text-sm rounded-full font-medium transition-all ${
+                    className={`px-2 py-1 sm:px-4 sm:py-2 text-sm rounded-full font-medium transition-all ${
                       timeframe === 'CUSTOM'
                         ? 'bg-[#E8E7BB] text-[#1D1D1D] shadow-md'
                         : 'text-gray-300 hover:text-white'
@@ -627,8 +627,8 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                 </div>
                 
                 {timeframe === 'CUSTOM' && (
-                  <div className="flex items-center space-x-2">
-                    <div className="flex items-center space-x-2 bg-white/10 rounded-full px-4 py-2">
+                  <div className="flex-column sm:flex items-center space-x-2 ">
+                    <div className="flex-column items-center space-x-2 bg-white/10 rounded-full px-4 py-2 ">
                       <input
                         type="date"
                         value={customFromDate}
@@ -650,7 +650,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                     <button
                       onClick={handleApplyCustomDateRange}
                       disabled={!customFromDate || !customToDate || loading}
-                      className="px-4 py-2 text-sm rounded-full font-medium transition-all bg-[#E8E7BB] text-[#1D1D1D] hover:bg-[#d4d3a7] shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#E8E7BB]"
+                      className="mt-3 sm:mt-0 px-4 py-2 text-sm rounded-full font-medium transition-all bg-[#E8E7BB] text-[#1D1D1D] hover:bg-[#d4d3a7] shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#E8E7BB]"
                     >
                       Apply
                     </button>
@@ -775,7 +775,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
 
             {/* Category Highlights Table */}
             <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-purple-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex-column sm:flex items-center justify-between mb-8">
                 <div className="flex items-center space-x-3">
                     <div className="bg-purple-500/20 p-3 rounded-xl">
                       <div className="w-2 h-2 bg-purple-400 rounded-full"></div>

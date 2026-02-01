@@ -216,9 +216,11 @@ export default function Sidebar({ accountingService }: SidebarProps) {
           isIconOnly={!isExpanded}
           variant="light"
           color="default"
-          className={`min-w-10 h-10 ${
-            isExpanded ? 'w-full justify-start px-4' : 'w-10 justify-center'
-          } text-gray-400 hover:text-white hover:bg-white/10 mt-2`}
+          className={`min-w-10 h-10 
+            ${ isExpanded ? 'w-full justify-start px-4' : 'w-10 justify-center'}
+            text-gray-400 hover:text-white hover:bg-white/10 mt-2
+            hidden sm:flex
+            `}
           onPress={() => setIsExpanded(!isExpanded)}
           title={isExpanded ? "Collapse" : "Expand"}
         >
