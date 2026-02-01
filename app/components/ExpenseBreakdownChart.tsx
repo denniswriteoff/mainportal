@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
+import { useMemo, useState } from 'react'
 
 interface ExpenseData {
   name: string
@@ -100,30 +100,41 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
 
   const visibleData = data.filter(d => !hiddenKeys[keyFromName(d.name)])
 
-  const CustomLegend = ({ payload }: any) => {
-    return (
-      <div className="flex flex-wrap gap-2 mt-4">
-        {payload.map((entry: any, index: number) => {
-          const expenseEntry = data.find(d => d.name === entry.value)
-          return (
-            <div 
-              key={index} 
-              className={`flex items-center space-x-2 text-xs ${onExpenseClick ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
-              onClick={onExpenseClick && expenseEntry ? () => handleCellClick(expenseEntry) : undefined}
+  // color assignment for pie segments and chips
+  const assignedColors = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (let i = 0; i < names.length; i++) {
+      map[keyFromName(names[i])] = COLORS[i % COLORS.length]
+    }
+    return map
+  }, [data])
+
+  const getColorForKey = (name: string) => assignedColors[keyFromName(name)] || '#9ca3af'
+
+  // Chips under the chart (toggle visibility). Label click opens details, chip click toggles visibility.
+  const Chips = () => (
+    <div className="flex flex-wrap gap-2 mt-4 justify-center">
+      {data.map((d) => {
+        const k = keyFromName(d.name)
+        const hidden = !!hiddenKeys[k]
+        return (
+          <button
+            key={k}
+            onClick={() => toggleHidden(d.name)}
+            className={`flex items-center space-x-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20 ${hidden ? 'opacity-60' : ''}`}
+          >
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getColorForKey(d.name) }} />
+            <span
+              className={`text-xs font-medium ${hidden ? 'text-gray-500' : 'text-gray-300'} cursor-pointer`}
+              onClick={(e) => { e.stopPropagation(); if (onExpenseClick) onExpenseClick(d.name) }}
             >
-              <div 
-                className="w-3 h-3 rounded-full" 
-                style={{ backgroundColor: entry.color }}
-              />
-              <span className="text-white">
-                {entry.value}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-    )
-  }
+              {d.name}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
 
   return (
     <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-yellow-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
@@ -151,27 +162,31 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
               onClick={onExpenseClick ? (data, index) => handleCellClick(data) : undefined}
               style={onExpenseClick ? { cursor: 'pointer' } : undefined}
             >
-              {data.map((entry, index) => (
+              {visibleData.map((entry, index) => (
                 <Cell 
                   key={`cell-${index}`} 
-                  fill={COLORS[index % COLORS.length]}
+                  fill={getColorForKey(entry.name)}
                   style={onExpenseClick ? { cursor: 'pointer' } : undefined}
                 />
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip />} />
-            <Legend content={<CustomLegend />} />
+            {/* custom chips legend below */}
           </PieChart>
         </ResponsiveContainer>
       </div>
+      <Chips />
       {/* Breakdown toggles drawer */}
       <div className="mt-6 pt-6 border-t border-white/10">
-        <div className="flex justify-center">
+        <div className="flex justify-center mt-3">
           <button
             onClick={() => setDrawerOpen(!drawerOpen)}
-            className="text-sm text-gray-400 hover:text-white px-3 py-2 rounded-md transition-all"
+            className="flex items-center space-x-2 text-sm text-gray-400 hover:text-white px-3 py-2 rounded-md transition-all"
           >
-            {drawerOpen ? 'Hide breakdown toggles' : 'Show breakdown toggles'}
+            <span>{drawerOpen ? 'Hide breakdown' : 'Show breakdown'}</span>
+            <span className={`transform transition-transform ${drawerOpen ? 'rotate-180' : ''}`}>
+              ▼
+            </span>
           </button>
         </div>
 
@@ -189,7 +204,7 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
                   />
                   <span
                     className={`text-xs font-medium ${hiddenKeys[k] ? 'text-gray-500' : 'text-gray-300'} cursor-pointer`}
-                    onClick={() => onExpenseClick && onExpenseClick(d.name)}
+                    onClick={() => toggleHidden(d.name)}
                   >
                     {d.name}
                   </span>
