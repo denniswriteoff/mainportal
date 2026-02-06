@@ -302,7 +302,7 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
           <div className="bg-[#0fb881]/20 p-2.5 rounded-xl">
             <div className="w-2 h-2 bg-[#0fb881] rounded-full"></div>
           </div>
-          <h3 className="text-2xl font-bold text-white">Revenue - Cost of Goods Sold - Expenses Trend</h3>
+          <h3 className="text-2xl font-bold text-white">Revenue, Cost of Goods Sold, & Expenses Trend</h3>
         </div>
         <p className="text-sm text-gray-400 ml-12">Monthly comparison over the selected period</p>
       </div>
