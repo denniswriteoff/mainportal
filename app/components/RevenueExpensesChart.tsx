@@ -143,6 +143,11 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
     for (const b of derivedBreakdown || []) {
       hidden[keyFromName(b.name)] = true
     }
+    
+    // COGS breakdown items default hidden
+    for (const k of cogsKeys) {
+      hidden[k] = true
+    }
     return hidden
   }
   const [hiddenKeys, setHiddenKeys] = useState<Record<string, boolean>>(initHiddenKeys())
@@ -199,21 +204,23 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
       '#a3a0fb','#f72585','#7209b7','#3f37c9','#ff9f1c','#ffbf69','#c08497','#7c3aed','#4cc9f0'
     ]
 
-    const keys = (derivedBreakdown || []).map((b) => keyFromName(b.name))
+    const expenseKeys = (derivedBreakdown || []).map((b) => keyFromName(b.name))
+    const allKeys = [...expenseKeys, ...cogsKeys]
     const map: Record<string, string> = {}
-    // reserve revenue/expenses
+    // reserve revenue/expenses/cogs
     map['revenue'] = '#10b981'
     map['expenses'] = '#ef4444'
+    map['cost_of_goods_sold'] = '#f59e0b'
 
-    if (keys.length === 0) return map
+    if (allKeys.length === 0) return map
 
     // pick spread indices from palette to avoid similar adjacent colors
-    const step = Math.max(1, Math.floor(palette.length / keys.length))
-    for (let i = 0; i < keys.length; i++) {
-      map[keys[i]] = palette[(i * step) % palette.length]
+    const step = Math.max(1, Math.floor(palette.length / allKeys.length))
+    for (let i = 0; i < allKeys.length; i++) {
+      map[allKeys[i]] = palette[(i * step) % palette.length]
     }
     return map
-  }, [derivedBreakdown])
+  }, [derivedBreakdown, cogsKeys])
 
   const getColorForKey = (key: string): string => {
     if (key === 'revenue') return '#10b981'
