@@ -194,7 +194,7 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
           max={Math.ceil(maxValue)}
           value={minThreshold}
           onChange={(e) => setMinThreshold(Number(e.target.value))}
-          className="w-1/2"
+          className="w-full"
         />
       </div>
 
