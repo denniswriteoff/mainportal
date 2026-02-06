@@ -1,7 +1,7 @@
 'use client'
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
 interface TrendData {
   month: string
@@ -154,6 +154,32 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
 
   const [drawerOpen, setDrawerOpen] = useState(false)
 
+  // Ensure any newly-introduced breakdown keys (e.g., when timeframe changes)
+  // are defaulted to hidden so the breakdown chips are unselected by default.
+  useEffect(() => {
+    setHiddenKeys((prev) => {
+      const next = { ...prev }
+      // ensure core series default visibility
+      next['revenue'] = false
+      next['expenses'] = false
+      next['cost_of_goods_sold'] = false
+
+      // add any missing derived breakdown keys as hidden
+      for (const b of derivedBreakdown || []) {
+        const k = keyFromName(b.name)
+        if (!(k in next)) next[k] = true
+      }
+
+      // add any missing COGS breakdown keys as hidden
+      for (const k of cogsKeys) {
+        if (!(k in next)) next[k] = true
+      }
+
+      return next
+    })
+  // whenever available breakdowns change, reset missing keys to hidden
+  }, [derivedBreakdown.length, cogsKeys.join('|')])
+
   const labelForKey = (key: string) => {
     if (key === 'revenue') return 'Revenue'
     if (key === 'expenses') return 'Expenses'
@@ -276,7 +302,7 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
           <div className="bg-[#0fb881]/20 p-2.5 rounded-xl">
             <div className="w-2 h-2 bg-[#0fb881] rounded-full"></div>
           </div>
-          <h3 className="text-2xl font-bold text-white">Revenue & Expenses Trend</h3>
+          <h3 className="text-2xl font-bold text-white">Revenue - Cost of Goods Sold - Expenses Trend</h3>
         </div>
         <p className="text-sm text-gray-400 ml-12">Monthly comparison over the selected period</p>
       </div>

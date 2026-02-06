@@ -116,9 +116,10 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
   const getColorForKey = (name: string) => assignedColors[keyFromName(name)] || '#9ca3af'
 
   // Chips under the chart (toggle visibility). Label click opens details, chip click toggles visibility.
+  // Render chips only for items currently visible on the chart (respecting slider threshold and hidden state)
   const Chips = () => (
     <div className="flex flex-wrap gap-2 mt-4 justify-center">
-      {data.map((d) => {
+      {visibleData.map((d) => {
         const k = keyFromName(d.name)
         const hidden = !!hiddenKeys[k]
         return (
@@ -214,9 +215,9 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
 
         {drawerOpen && (
           <div className="mt-4 grid grid-cols-2 gap-2">
-            {data.map((key) => {
+            {visibleData.map((key) => {
               const k = keyFromName(key.name)
-              const hidden = !!hiddenKeys[k]  
+              const hidden = !!hiddenKeys[k]
 
               return (
               <button

@@ -20,7 +20,7 @@ export default function EngagementChart({ data }: EngagementChartProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-base font-semibold text-[#1D1D1D]">Revenue & Expenses</h3>
+        <h3 className="text-base font-semibold text-[#1D1D1D]">Revenue, COGS & Expenses</h3>
         <div className="flex gap-4 items-center">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-[#E8E7BB]"></div>
