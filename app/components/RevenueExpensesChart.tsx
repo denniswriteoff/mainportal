@@ -136,8 +136,8 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
     hidden['revenue'] = false
     hidden['expenses'] = false
 
-    // cost of goods sold visible only if we have COGS data
-    hidden['cost_of_goods_sold'] = !(cogsTotal > 0)
+    // cost of goods sold visible by default (always shown like revenue/expenses)
+    hidden['cost_of_goods_sold'] = false
 
     // include derived breakdown keys (default hidden)
     for (const b of derivedBreakdown || []) {
@@ -361,20 +361,18 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
             </span>
           </button>
 
-          {cogsTotal > 0 && (
-            <button
-              onClick={() => toggleKey('cost_of_goods_sold')}
-              className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20 ${hiddenKeys['cost_of_goods_sold'] ? 'opacity-60' : ''}`}
-            >
-              <div
-                className="w-3.5 h-3.5 rounded-full"
-                style={{ backgroundColor: getColorForKey('cost_of_goods_sold') }}
-              />
-              <span className={`text-sm font-medium ${hiddenKeys['cost_of_goods_sold'] ? 'text-gray-500' : 'text-gray-300'}`}>
-                {labelForKey('cost_of_goods_sold')}
-              </span>
-            </button>
-          )}
+          <button
+            onClick={() => toggleKey('cost_of_goods_sold')}
+            className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20 ${hiddenKeys['cost_of_goods_sold'] ? 'opacity-60' : ''}`}
+          >
+            <div
+              className="w-3.5 h-3.5 rounded-full"
+              style={{ backgroundColor: getColorForKey('cost_of_goods_sold') }}
+            />
+            <span className={`text-sm font-medium ${hiddenKeys['cost_of_goods_sold'] ? 'text-gray-500' : 'text-gray-300'}`}>
+              {labelForKey('cost_of_goods_sold')}
+            </span>
+          </button>
 
           <button
             onClick={() => toggleKey('expenses')}

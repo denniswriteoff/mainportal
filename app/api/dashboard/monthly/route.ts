@@ -429,26 +429,46 @@ function extractQboCostOfGoodsSoldBreakdown(report: any): Array<{ name: string; 
 
   const cogsSections = findCogsSection(rows);
 
-  // Extract individual COGS items from the section
-  for (const section of cogsSections) {
-    if (section?.Rows?.Row) {
-      const cogRows = Array.isArray(section.Rows.Row) ? section.Rows.Row : [section.Rows.Row];
+  // Recursively extract items from COGS section and nested sections
+  function extractItemsFromRows(rowsToProcess: any[]): void {
+    if (!rowsToProcess) return;
 
-      for (const row of cogRows) {
-        if (row.type === "Data" && row.ColData) {
-          const name = row.ColData[0]?.value || "";
-          const value = row.ColData[1]?.value || "0";
+    for (const row of rowsToProcess) {
+      // Extract data rows (actual line items)
+      if (row.type === "Data" && row.ColData) {
+        const name = row.ColData[0]?.value || "";
+        const value = row.ColData[1]?.value || "0";
 
-          if (name && !name.toLowerCase().includes("total")) {
-            const numericValue = typeof value === "string" ? parseFloat(value.replace(/,/g, "")) : value;
+        if (name && !name.toLowerCase().includes("total")) {
+          const numericValue = typeof value === "string" ? parseFloat(value.replace(/,/g, "")) : value;
 
-            if (!isNaN(numericValue)) {
-              items.push({ name, value: Math.abs(numericValue) });
-              totalCogs += Math.abs(numericValue);
-            }
+          if (!isNaN(numericValue)) {
+            items.push({ name, value: Math.abs(numericValue) });
+            totalCogs += Math.abs(numericValue);
           }
         }
       }
+
+      // Handle nested sections (e.g., "Subcontractor" under COGS)
+      if (row.Rows) {
+        let nested = null;
+        if (Array.isArray(row.Rows)) {
+          nested = row.Rows;
+        } else if (row.Rows.Row) {
+          nested = Array.isArray(row.Rows.Row) ? row.Rows.Row : [row.Rows.Row];
+        }
+        if (nested) {
+          extractItemsFromRows(nested);
+        }
+      }
+    }
+  }
+
+  // Extract items from all COGS sections
+  for (const section of cogsSections) {
+    if (section?.Rows?.Row) {
+      const cogRows = Array.isArray(section.Rows.Row) ? section.Rows.Row : [section.Rows.Row];
+      extractItemsFromRows(cogRows);
     }
   }
 
