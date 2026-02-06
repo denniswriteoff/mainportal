@@ -123,7 +123,7 @@ async function generateQboMonthlyTrendData(
   base: string,
   fromDate?: string | null,
   toDate?: string | null
-): Promise<Array<{ month: string; revenue: number; expenses: number; costOfGoodsSold: number; expenseBreakdown?: Array<{ name: string; value: number; percentage: number }> }>> {
+): Promise<Array<{ month: string; revenue: number; expenses: number; costOfGoodsSold: number; costOfGoodsSoldBreakdown?: Array<{ name: string; value: number; percentage: number }>; expenseBreakdown?: Array<{ name: string; value: number; percentage: number }> }>> {
   const trendData = [];
 
   try {
@@ -167,12 +167,14 @@ async function generateQboMonthlyTrendData(
         const { revenue, operatingExpenses, costOfGoodsSold } = extractQboProfitLossSummary(profitLoss);
         const expenses = operatingExpenses;
         const expenseBreakdown = extractQboExpenseBreakdown(profitLoss);
+        const costOfGoodsSoldBreakdown = extractQboCostOfGoodsSoldBreakdown(profitLoss);
 
         trendData.push({
           month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
           revenue: Math.abs(revenue),
           expenses: Math.abs(expenses),
           costOfGoodsSold: Math.abs(costOfGoodsSold),
+          costOfGoodsSoldBreakdown,
           expenseBreakdown,
         });
       } catch (error: any) {
@@ -195,12 +197,14 @@ async function generateQboMonthlyTrendData(
             const { revenue, operatingExpenses, costOfGoodsSold } = extractQboProfitLossSummary(retryProfitLoss);
             const expenses = operatingExpenses;
             const expenseBreakdown = extractQboExpenseBreakdown(retryProfitLoss);
+            const costOfGoodsSoldBreakdown = extractQboCostOfGoodsSoldBreakdown(retryProfitLoss);
 
             trendData.push({
               month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
               revenue: Math.abs(revenue),
               expenses: Math.abs(expenses),
               costOfGoodsSold: Math.abs(costOfGoodsSold),
+              costOfGoodsSoldBreakdown,
               expenseBreakdown,
             });
           } catch (retryError) {
@@ -210,6 +214,7 @@ async function generateQboMonthlyTrendData(
               revenue: 0,
               expenses: 0,
               costOfGoodsSold: 0,
+              costOfGoodsSoldBreakdown: [],
             });
           }
         } else {
@@ -219,6 +224,7 @@ async function generateQboMonthlyTrendData(
             revenue: 0,
             expenses: 0,
             costOfGoodsSold: 0,
+            costOfGoodsSoldBreakdown: [],
           });
         }
       }
@@ -375,6 +381,82 @@ function extractQboExpenseBreakdown(report: any): Array<{ name: string; value: n
     .map((expense) => ({
       ...expense,
       percentage: totalExpenses > 0 ? (expense.value / totalExpenses) * 100 : 0,
+    }))
+    .sort((a, b) => b.value - a.value)
+}
+
+// Extract cost of goods sold breakdown from QBO Profit & Loss report
+function extractQboCostOfGoodsSoldBreakdown(report: any): Array<{ name: string; value: number; percentage: number }> {
+  const items: Array<{ name: string; value: number }> = [];
+  let totalCogs = 0;
+
+  if (!report?.Rows?.Row) {
+    return [];
+  }
+
+  const rows = Array.isArray(report.Rows.Row) ? report.Rows.Row : [report.Rows.Row];
+
+  // Find only COST OF GOODS SOLD sections
+  function findCogsSection(rows: any[]): any[] {
+    const sections = [];
+
+    for (const row of rows) {
+      if (row.Header && row.Header.ColData) {
+        const headerValue = row.Header.ColData[0]?.value;
+        if (
+          headerValue === "COST OF GOODS SOLD" ||
+          headerValue === "COST OF SALES" ||
+          headerValue === "COGS"
+        ) {
+          sections.push(row);
+        }
+      }
+
+      // Recursively search in nested rows
+      let nestedRows = null;
+      if (Array.isArray(row.Rows)) {
+        nestedRows = row.Rows;
+      } else if (row.Rows && row.Rows.Row) {
+        nestedRows = Array.isArray(row.Rows.Row) ? row.Rows.Row : [row.Rows.Row];
+      }
+
+      if (nestedRows) {
+        sections.push(...findCogsSection(nestedRows));
+      }
+    }
+    return sections;
+  }
+
+  const cogsSections = findCogsSection(rows);
+
+  // Extract individual COGS items from the section
+  for (const section of cogsSections) {
+    if (section?.Rows?.Row) {
+      const cogRows = Array.isArray(section.Rows.Row) ? section.Rows.Row : [section.Rows.Row];
+
+      for (const row of cogRows) {
+        if (row.type === "Data" && row.ColData) {
+          const name = row.ColData[0]?.value || "";
+          const value = row.ColData[1]?.value || "0";
+
+          if (name && !name.toLowerCase().includes("total")) {
+            const numericValue = typeof value === "string" ? parseFloat(value.replace(/,/g, "")) : value;
+
+            if (!isNaN(numericValue)) {
+              items.push({ name, value: Math.abs(numericValue) });
+              totalCogs += Math.abs(numericValue);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Calculate percentages and sort by value
+  return items
+    .map((item) => ({
+      ...item,
+      percentage: totalCogs > 0 ? (item.value / totalCogs) * 100 : 0,
     }))
     .sort((a, b) => b.value - a.value)
 }

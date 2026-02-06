@@ -8,6 +8,7 @@ interface TrendData {
   revenue: number
   expenses: number
   costOfGoodsSold?: number
+  costOfGoodsSoldBreakdown?: Array<{ name: string; value: number; percentage: number }>
 }
 
 interface RevenueExpensesChartProps {
@@ -106,17 +107,25 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
     return n.includes('cost of goods') || n.includes('cost of sales') || n === 'cogs' || n.includes('subcontractor') || n.includes('subcontractors')
   }
   
-  // Get COGS items from derived breakdown for nested display in drawer
-  const cogsKeys = (derivedBreakdown || []).filter(b => isCogsItem(b.name)).map(b => keyFromName(b.name))
+  // Get COGS keys from costOfGoodsSoldBreakdown (from API) or derived breakdown
+  const getCogsKeys = (): string[] => {
+    // First try to get from costOfGoodsSoldBreakdown in data
+    const firstRow = data[0] as any
+    if (firstRow?.costOfGoodsSoldBreakdown && Array.isArray(firstRow.costOfGoodsSoldBreakdown) && firstRow.costOfGoodsSoldBreakdown.length > 0) {
+      return firstRow.costOfGoodsSoldBreakdown.map((item: any) => keyFromName(item.name))
+    }
+    // Fallback: get from derived breakdown
+    return (derivedBreakdown || []).filter(b => isCogsItem(b.name)).map(b => keyFromName(b.name))
+  }
+  const cogsKeys = getCogsKeys()
   
-  // Get COGS total from the first row's data, or calculate from cogsKeys if not provided
+  // Get COGS total from the first row's data
   const cogsTotal = (() => {
     const firstRow = data[0] as any
     if (firstRow?.costOfGoodsSold !== undefined && firstRow.costOfGoodsSold > 0) {
       return firstRow.costOfGoodsSold
     }
-    // Fallback: sum from derived breakdown
-    return (derivedBreakdown || []).filter(b => isCogsItem(b.name)).reduce((acc, b) => acc + (b.value || 0), 0)
+    return 0
   })()
 
   // Initialize hidden keys: revenue & expenses visible by default, other series hidden
@@ -225,21 +234,33 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
     const newRow = { ...row } as any
     // initialize keys to 0
     for (const k of expenseKeys) newRow[k] = 0
+    for (const k of cogsKeys) newRow[k] = 0
+    
+    // Populate COGS breakdown items
+    const cogsBreakdown = (row as any).costOfGoodsSoldBreakdown || []
+    for (const item of cogsBreakdown) {
+      const k = keyFromName(item.name)
+      newRow[k] = Math.abs(item.value || 0)
+    }
+    
+    // Populate expense breakdown items
     const items = (row as any).expenseBreakdown || []
     for (const it of items) {
       const k = keyFromName(it.name)
       newRow[k] = Math.abs(it.value || 0)
     }
+    
     // use costOfGoodsSold value directly from data
     newRow['cost_of_goods_sold'] = Math.abs(newRow.costOfGoodsSold || 0)
-    // remove the raw expenseBreakdown array so it doesn't create an invalid series
+    // remove the raw breakdown arrays so they don't create invalid series
     if (newRow.expenseBreakdown !== undefined) delete newRow.expenseBreakdown
+    if (newRow.costOfGoodsSoldBreakdown !== undefined) delete newRow.costOfGoodsSoldBreakdown
     return newRow
   })
 
   const seriesFirst = (augmentedData[0] || {}) as any
   const seriesKeys = Object.keys(seriesFirst).filter(k => k !== 'month')
-  const extraKeys = expenseKeys.filter(k => !cogsKeys.includes(k))
+  const expenseOnlyKeys = expenseKeys.filter(k => !cogsKeys.includes(k))
 
   return (
     <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-green-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
@@ -301,7 +322,7 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
             {/* Dynamically render expense series (detect keys from data) */}
             {(() => {
               const first = augmentedData[0] || {} as any
-              const keys = Object.keys(first).filter(k => k !== 'month' && k !== 'revenue' && k !== 'expenseBreakdown')
+              const keys = Object.keys(first).filter(k => k !== 'month' && k !== 'revenue' && k !== 'expenseBreakdown' && k !== 'costOfGoodsSold')
               return keys.map((key, idx) => {
                 // skip the aggregated COGS series here (rendered above)
                 if (key === 'cost_of_goods_sold') return null
@@ -369,7 +390,7 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
           </button>
         </div>
 
-        {extraKeys.length > 0 && (
+        {(cogsKeys.length > 0 || expenseOnlyKeys.length > 0) && (
           <>
             <div className="flex justify-center mt-3">
               <button
@@ -416,7 +437,7 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
                 <div>
                   <div className="text-xs text-gray-400 mb-2">Expenses</div>
                   <div className="grid grid-cols-2 gap-2">
-                    {extraKeys.map((key) => (
+                    {expenseOnlyKeys.map((key) => (
                       <button
                         key={key}
                         onClick={() => toggleKey(key)}

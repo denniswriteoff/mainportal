@@ -153,20 +153,6 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
       </div>
       
       <div className="h-80">
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-1">
-                <div className="text-xs text-gray-400">Minimum category value to include</div>
-                <div className="text-xs text-gray-300 font-medium">{formatCurrency(minThreshold)}</div>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={Math.ceil(maxValue)}
-                value={minThreshold}
-                onChange={(e) => setMinThreshold(Number(e.target.value))}
-                className="w-full"
-              />
-            </div>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -194,6 +180,24 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
         </ResponsiveContainer>
       </div>
       <Chips />
+      
+      {/* Compact slider below chips */}
+      <div className="mt-3 mb-4 px-2">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-gray-400">{formatCurrency(minThreshold)}</span>
+          <span className="text-xs text-gray-400">Filter by minimum value</span>
+          <span className="text-xs text-gray-400">{formatCurrency(Math.ceil(maxValue))}</span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={Math.ceil(maxValue)}
+          value={minThreshold}
+          onChange={(e) => setMinThreshold(Number(e.target.value))}
+          className="w-full"
+        />
+      </div>
+
       {/* Breakdown toggles drawer */}
       <div className="mt-6 border-t border-white/10">
         <div className="flex justify-center mt-3">
