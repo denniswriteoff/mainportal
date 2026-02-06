@@ -6,6 +6,7 @@ interface TrendData {
   month: string
   revenue: number
   expenses: number
+  costOfGoodsSold?: number
 }
 
 interface NetProfitTrendChartProps {
@@ -34,12 +35,13 @@ export default function NetProfitTrendChart({ data, loading = false }: NetProfit
     )
   }
 
-  // Calculate net profit for each month
+  // Calculate net profit for each month: Revenue - COGS - Expenses = Net Profit
   const chartData = data.map(item => ({
     month: item.month,
     revenue: item.revenue,
+    costOfGoodsSold: item.costOfGoodsSold || 0,
     expenses: item.expenses,
-    netProfit: item.revenue - item.expenses
+    netProfit: item.revenue - (item.costOfGoodsSold || 0) - item.expenses
   }))
 
   const formatCurrency = (value: number) => {
@@ -56,12 +58,18 @@ export default function NetProfitTrendChart({ data, loading = false }: NetProfit
       const data = payload[0].payload
       return (
         <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-lg">
-          <p className="text-sm font-medium text-[#1D1D1D] mb-1">{label}</p>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm font-medium text-[#1D1D1D] mb-2">{label}</p>
+          <p className="text-sm text-gray-600 font-semibold text-green-600 mb-1">
             Net Profit: {formatCurrency(data.netProfit)}
           </p>
+          <p className="text-xs text-gray-500 mb-0.5">
+            Revenue: {formatCurrency(data.revenue || 0)}
+          </p>
+          <p className="text-xs text-gray-500 mb-0.5">
+            COGS: {formatCurrency(data.costOfGoodsSold || 0)}
+          </p>
           <p className="text-xs text-gray-500">
-            Revenue: {formatCurrency(data.revenue || 0)} | Expenses: {formatCurrency(data.expenses || 0)}
+            Expenses: {formatCurrency(data.expenses || 0)}
           </p>
         </div>
       )
