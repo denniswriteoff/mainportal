@@ -7,6 +7,7 @@ interface TrendData {
   month: string
   revenue: number
   expenses: number
+  costOfGoodsSold?: number
 }
 
 interface RevenueExpensesChartProps {
@@ -98,12 +99,36 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
     return Array.from(map.values())
   })()
 
+  // Identify which breakdown items belong to COGS (common names + subcontractors)
+  const isCogsItem = (name: string) => {
+    if (!name) return false
+    const n = name.toLowerCase()
+    return n.includes('cost of goods') || n.includes('cost of sales') || n === 'cogs' || n.includes('subcontractor') || n.includes('subcontractors')
+  }
+  
+  // Get COGS items from derived breakdown for nested display in drawer
+  const cogsKeys = (derivedBreakdown || []).filter(b => isCogsItem(b.name)).map(b => keyFromName(b.name))
+  
+  // Get COGS total from the first row's data, or calculate from cogsKeys if not provided
+  const cogsTotal = (() => {
+    const firstRow = data[0] as any
+    if (firstRow?.costOfGoodsSold !== undefined && firstRow.costOfGoodsSold > 0) {
+      return firstRow.costOfGoodsSold
+    }
+    // Fallback: sum from derived breakdown
+    return (derivedBreakdown || []).filter(b => isCogsItem(b.name)).reduce((acc, b) => acc + (b.value || 0), 0)
+  })()
+
   // Initialize hidden keys: revenue & expenses visible by default, other series hidden
+  // COGS visibility depends on whether we detected any COGS items/values
   const initHiddenKeys = () => {
     const hidden: Record<string, boolean> = {}
     // revenue & expenses visible
     hidden['revenue'] = false
     hidden['expenses'] = false
+
+    // cost of goods sold visible only if we have COGS data
+    hidden['cost_of_goods_sold'] = !(cogsTotal > 0)
 
     // include derived breakdown keys (default hidden)
     for (const b of derivedBreakdown || []) {
@@ -118,6 +143,7 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
   const labelForKey = (key: string) => {
     if (key === 'revenue') return 'Revenue'
     if (key === 'expenses') return 'Expenses'
+    if (key === 'cost_of_goods_sold') return 'Cost of Goods Sold'
     const nk = normalize(key)
 
     // try to map using derivedBreakdown (per-month) first
@@ -183,6 +209,7 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
   const getColorForKey = (key: string): string => {
     if (key === 'revenue') return '#10b981'
     if (key === 'expenses') return '#ef4444'
+    if (key === 'cost_of_goods_sold') return '#f59e0b'
     return assignedColors[key] || '#9ca3af'
   }
 
@@ -203,6 +230,8 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
       const k = keyFromName(it.name)
       newRow[k] = Math.abs(it.value || 0)
     }
+    // use costOfGoodsSold value directly from data
+    newRow['cost_of_goods_sold'] = Math.abs(newRow.costOfGoodsSold || 0)
     // remove the raw expenseBreakdown array so it doesn't create an invalid series
     if (newRow.expenseBreakdown !== undefined) delete newRow.expenseBreakdown
     return newRow
@@ -210,7 +239,7 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
 
   const seriesFirst = (augmentedData[0] || {}) as any
   const seriesKeys = Object.keys(seriesFirst).filter(k => k !== 'month')
-  const extraKeys = expenseKeys
+  const extraKeys = expenseKeys.filter(k => !cogsKeys.includes(k))
 
   return (
     <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-green-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
@@ -256,11 +285,26 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
               />
             )}
 
+            {/* Cost of Goods Sold main series */}
+            {!hiddenKeys['cost_of_goods_sold'] && (
+              <Line
+                type="monotone"
+                dataKey="cost_of_goods_sold"
+                stroke={getColorForKey('cost_of_goods_sold')}
+                strokeWidth={2.25}
+                dot={{ fill: getColorForKey('cost_of_goods_sold'), strokeWidth: 1.5, r: 3.5 }}
+                activeDot={{ r: 5 }}
+                name={labelForKey('cost_of_goods_sold')}
+              />
+            )}
+
             {/* Dynamically render expense series (detect keys from data) */}
             {(() => {
               const first = augmentedData[0] || {} as any
               const keys = Object.keys(first).filter(k => k !== 'month' && k !== 'revenue' && k !== 'expenseBreakdown')
               return keys.map((key, idx) => {
+                // skip the aggregated COGS series here (rendered above)
+                if (key === 'cost_of_goods_sold') return null
                 const color = getColorForKey(key)
                 return !hiddenKeys[key] ? (
                   <Line
@@ -282,11 +326,10 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
 
       {/* Custom Interactive Legend */}
       <div className="mt-8 pt-6 border-t border-white/10">
-        <div className="flex justify-center gap-4">
+        <div className="flex justify-center gap-4 w-full">
           <button
             onClick={() => toggleKey('revenue')}
-            style={{ width: '40%' }}
-            className={`flex items-center justify-center space-x-2 px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20 ${hiddenKeys['revenue'] ? 'opacity-60' : ''}`}
+            className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20 ${hiddenKeys['revenue'] ? 'opacity-60' : ''}`}
           >
             <div
               className="w-3.5 h-3.5 rounded-full"
@@ -297,10 +340,24 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
             </span>
           </button>
 
+          {cogsTotal > 0 && (
+            <button
+              onClick={() => toggleKey('cost_of_goods_sold')}
+              className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20 ${hiddenKeys['cost_of_goods_sold'] ? 'opacity-60' : ''}`}
+            >
+              <div
+                className="w-3.5 h-3.5 rounded-full"
+                style={{ backgroundColor: getColorForKey('cost_of_goods_sold') }}
+              />
+              <span className={`text-sm font-medium ${hiddenKeys['cost_of_goods_sold'] ? 'text-gray-500' : 'text-gray-300'}`}>
+                {labelForKey('cost_of_goods_sold')}
+              </span>
+            </button>
+          )}
+
           <button
             onClick={() => toggleKey('expenses')}
-            style={{ width: '40%' }}
-            className={`flex items-center justify-center space-x-2 px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20 ${hiddenKeys['expenses'] ? 'opacity-60' : ''}`}
+            className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20 ${hiddenKeys['expenses'] ? 'opacity-60' : ''}`}
           >
             <div
               className="w-3.5 h-3.5 rounded-full"
@@ -327,25 +384,58 @@ export default function RevenueExpensesChart({ data, loading = false, expenseBre
             </div>
 
             {drawerOpen && (
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                {extraKeys.map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => toggleKey(key)}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20`}
-                  >
-                    <div
-                      className="w-2.5 h-2.5 rounded-full transition-opacity"
-                      style={{
-                        backgroundColor: getColorForKey(key),
-                        opacity: hiddenKeys[key] ? 0.3 : 1,
-                      }}
-                    />
-                    <span className={`text-xs font-medium transition-opacity ${hiddenKeys[key] ? 'text-gray-500' : 'text-gray-300'}`}>
-                      {labelForKey(key)}
-                    </span>
-                  </button>
-                ))}
+              <div className="mt-4">
+                {/* COGS group */}
+                {cogsKeys.length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-xs text-gray-400 mb-2">Cost of goods sold</div>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      {cogsKeys.map((key) => (
+                        <button
+                          key={key}
+                          onClick={() => toggleKey(key)}
+                          className={`flex items-center space-x-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20`}
+                        >
+                          <div
+                            className="w-2.5 h-2.5 rounded-full transition-opacity"
+                            style={{
+                              backgroundColor: getColorForKey(key),
+                              opacity: hiddenKeys[key] ? 0.3 : 1,
+                            }}
+                          />
+                          <span className={`text-xs font-medium transition-opacity ${hiddenKeys[key] ? 'text-gray-500' : 'text-gray-300'}`}>
+                            {labelForKey(key)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Operating Expenses group */}
+                <div>
+                  <div className="text-xs text-gray-400 mb-2">Expenses</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {extraKeys.map((key) => (
+                      <button
+                        key={key}
+                        onClick={() => toggleKey(key)}
+                        className={`flex items-center space-x-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-white/20`}
+                      >
+                        <div
+                          className="w-2.5 h-2.5 rounded-full transition-opacity"
+                          style={{
+                            backgroundColor: getColorForKey(key),
+                            opacity: hiddenKeys[key] ? 0.3 : 1,
+                          }}
+                        />
+                        <span className={`text-xs font-medium transition-opacity ${hiddenKeys[key] ? 'text-gray-500' : 'text-gray-300'}`}>
+                          {labelForKey(key)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </>

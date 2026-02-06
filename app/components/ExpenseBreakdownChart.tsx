@@ -93,12 +93,16 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
   const [hiddenKeys, setHiddenKeys] = useState<Record<string, boolean>>(initHidden)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
+  // slider to filter out low-value expense categories (min threshold)
+  const maxValue = Math.max(...data.map(d => d.value), 0)
+  const [minThreshold, setMinThreshold] = useState<number>(0)
+
   const toggleHidden = (name: string) => {
     const k = keyFromName(name)
     setHiddenKeys(prev => ({ ...prev, [k]: !prev[k] }))
   }
 
-  const visibleData = data.filter(d => !hiddenKeys[keyFromName(d.name)])
+  const visibleData = data.filter(d => !hiddenKeys[keyFromName(d.name)] && d.value >= minThreshold)
 
   // color assignment for pie segments and chips
   const assignedColors = useMemo(() => {
@@ -149,6 +153,20 @@ export default function ExpenseBreakdownChart({ data, loading = false, onExpense
       </div>
       
       <div className="h-80">
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-xs text-gray-400">Minimum category value to include</div>
+                <div className="text-xs text-gray-300 font-medium">{formatCurrency(minThreshold)}</div>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={Math.ceil(maxValue)}
+                value={minThreshold}
+                onChange={(e) => setMinThreshold(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie

@@ -77,10 +77,12 @@ export async function GET(request: NextRequest) {
 function extractQboProfitLossSummary(report: any): {
   revenue: number;
   operatingExpenses: number;
+  costOfGoodsSold: number;
 } {
   const result = {
     revenue: 0,
     operatingExpenses: 0,
+    costOfGoodsSold: 0,
   };
 
   if (!report?.Rows?.Row) {
@@ -103,6 +105,9 @@ function extractQboProfitLossSummary(report: any): {
           case "Total Expenses":
             result.operatingExpenses = numericValue;
             break;
+          case "Total Cost of Goods Sold":
+            result.costOfGoodsSold = numericValue;
+            break;
         }
       }
     }
@@ -118,7 +123,7 @@ async function generateQboMonthlyTrendData(
   base: string,
   fromDate?: string | null,
   toDate?: string | null
-): Promise<Array<{ month: string; revenue: number; expenses: number; expenseBreakdown?: Array<{ name: string; value: number; percentage: number }> }>> {
+): Promise<Array<{ month: string; revenue: number; expenses: number; costOfGoodsSold: number; expenseBreakdown?: Array<{ name: string; value: number; percentage: number }> }>> {
   const trendData = [];
 
   try {
@@ -159,7 +164,7 @@ async function generateQboMonthlyTrendData(
         });
 
         const profitLoss = response.json || JSON.parse(response.body || "{}");
-        const { revenue, operatingExpenses } = extractQboProfitLossSummary(profitLoss);
+        const { revenue, operatingExpenses, costOfGoodsSold } = extractQboProfitLossSummary(profitLoss);
         const expenses = operatingExpenses;
         const expenseBreakdown = extractQboExpenseBreakdown(profitLoss);
 
@@ -167,6 +172,7 @@ async function generateQboMonthlyTrendData(
           month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
           revenue: Math.abs(revenue),
           expenses: Math.abs(expenses),
+          costOfGoodsSold: Math.abs(costOfGoodsSold),
           expenseBreakdown,
         });
       } catch (error: any) {
@@ -186,7 +192,7 @@ async function generateQboMonthlyTrendData(
             });
 
             const retryProfitLoss = retryResponse.json || JSON.parse(retryResponse.body || "{}");
-            const { revenue, operatingExpenses } = extractQboProfitLossSummary(retryProfitLoss);
+            const { revenue, operatingExpenses, costOfGoodsSold } = extractQboProfitLossSummary(retryProfitLoss);
             const expenses = operatingExpenses;
             const expenseBreakdown = extractQboExpenseBreakdown(retryProfitLoss);
 
@@ -194,6 +200,7 @@ async function generateQboMonthlyTrendData(
               month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
               revenue: Math.abs(revenue),
               expenses: Math.abs(expenses),
+              costOfGoodsSold: Math.abs(costOfGoodsSold),
               expenseBreakdown,
             });
           } catch (retryError) {
@@ -202,6 +209,7 @@ async function generateQboMonthlyTrendData(
               month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
               revenue: 0,
               expenses: 0,
+              costOfGoodsSold: 0,
             });
           }
         } else {
@@ -210,6 +218,7 @@ async function generateQboMonthlyTrendData(
             month: monthStart.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
             revenue: 0,
             expenses: 0,
+            costOfGoodsSold: 0,
           });
         }
       }
