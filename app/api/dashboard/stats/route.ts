@@ -115,7 +115,8 @@ export async function GET(request: NextRequest) {
 
         // Process P&L data
         const { revenue, operatingExpenses, costOfGoodsSold, netProfit } = extractQboProfitLossSummary(profitLoss);
-        const expenses = operatingExpenses + costOfGoodsSold;
+        // Keep operating expenses and cost of goods sold separate for dashboard tiles
+        const expenses = operatingExpenses;
 
         const netMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
@@ -159,7 +160,9 @@ export async function GET(request: NextRequest) {
           },
           kpis: {
             revenue: Math.abs(revenue),
+            // expose operating expenses separately
             expenses: Math.abs(expenses),
+            costOfGoodsSold: Math.abs(costOfGoodsSold),
             netProfit: netProfit,
             netMargin,
             cashBalance: Math.abs(cashBalance),
@@ -443,10 +446,7 @@ function extractQboExpenseBreakdown(report: any): Array<{ name: string; value: n
         const headerValue = row.Header.ColData[0]?.value;
         if (
           headerValue === "EXPENSES" ||
-          headerValue === "OTHER EXPENSES" ||
-          headerValue === "COST OF GOODS SOLD" ||
-          headerValue === "COST OF SALES" ||
-          headerValue === "COGS"
+          headerValue === "OTHER EXPENSES"
         ) {
           sections.push(row);
         }

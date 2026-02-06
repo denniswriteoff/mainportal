@@ -671,7 +671,7 @@ export default function DashboardContent({ session: initialSession }: DashboardC
               <>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
               <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-[#E8E7BB]/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
                 <div className="flex items-center justify-between mb-4">
                   <div className="bg-[#E8E7BB]/20 p-3 rounded-xl">
@@ -688,8 +688,18 @@ export default function DashboardContent({ session: initialSession }: DashboardC
                     <TrendingDown className="w-6 h-6 text-red-400" />
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 mb-2 uppercase tracking-widest font-semibold">Expenses</p>
+                <p className="text-xs text-gray-400 mb-2 uppercase tracking-widest font-semibold">Operating Expenses</p>
                 <p className="text-2xl font-bold text-white">{formatCurrency(dashboardData?.kpis?.expenses || 0)}</p>
+              </div>
+
+              <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-yellow-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-yellow-500/20 p-3 rounded-xl">
+                    <DollarSign className="w-6 h-6 text-yellow-400" />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mb-2 uppercase tracking-widest font-semibold">Cost of Goods Sold</p>
+                <p className="text-2xl font-bold text-white">{formatCurrency(dashboardData?.kpis?.costOfGoodsSold || 0)}</p>
               </div>
 
               <div className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-blue-500/30 hover:bg-gray-400/10 transition-all duration-300 shadow-lg">
